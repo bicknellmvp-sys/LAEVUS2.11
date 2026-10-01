@@ -208,11 +208,10 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
-  // Use CORS
+  // Enable CORS
   app.use(cors({
     origin: 'https://laevus.onrender.com',
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'x-goog-api-key', 'x-ai-provider']
+    optionsSuccessStatus: 200
   }));
 
   app.use(express.json({ limit: '50mb' }));
