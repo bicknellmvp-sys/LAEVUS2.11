@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
+const BACKEND_URL = 'https://ai-studio-laevus2000.onrender.com';
+
 async function fetchFromProxy(endpoint: string, body: any) {
-  // Use relative path to ensure the browser calls the same domain (managed by Vercel/Render proxying)
-  const res = await fetch(endpoint, {
+  const res = await fetch(`${BACKEND_URL}${endpoint}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
