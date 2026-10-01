@@ -209,7 +209,11 @@ async function startServer() {
   const PORT = Number(process.env.PORT) || 3000;
 
   // Use CORS
-  app.use(cors());
+  app.use(cors({
+    origin: 'https://laevus.onrender.com',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'x-goog-api-key', 'x-ai-provider']
+  }));
 
   app.use(express.json({ limit: '50mb' }));
 
