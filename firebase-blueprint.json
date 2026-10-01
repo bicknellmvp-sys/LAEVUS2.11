@@ -1,0 +1,24 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "User profile data",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "messages": { "type": "array" },
+        "transcripts": { "type": "array" },
+        "sentimentScores": { "type": "array" },
+        "lastLoginAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "user" },
+      "description": "User document containing data"
+    }
+  }
+}

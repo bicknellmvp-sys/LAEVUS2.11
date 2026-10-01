@@ -1,0 +1,10 @@
+{
+  "name": "Remix Cheat code Blavatsky ",
+  "description": "Say the magic words \"I see dead people\" and have a truly magical conversation with madam Blavatsky.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
