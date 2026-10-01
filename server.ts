@@ -1,6 +1,7 @@
 import express from 'express';
 import { createServer as createViteServer, loadEnv } from 'vite';
 import path from 'path';
+import cors from 'cors';
 import { GoogleGenAI, Modality, GenerateContentResponse, ThinkingLevel } from '@google/genai';
 
 const __dirname = path.resolve();
@@ -207,14 +208,8 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
-  // Add CORS middleware
-  app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*"); // Or specifically your Vercel URL
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    res.header("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
-    if (req.method === 'OPTIONS') return res.sendStatus(200);
-    next();
-  });
+  // Use CORS
+  app.use(cors());
 
   app.use(express.json({ limit: '50mb' }));
 
