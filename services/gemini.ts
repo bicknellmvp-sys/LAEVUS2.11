@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-const BACKEND_URL = 'https://ai-studio-laevus2000.onrender.com';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://ai-studio-laevus2000.onrender.com';
 
 async function fetchFromProxy(endpoint: string, body: any) {
   const res = await fetch(`${BACKEND_URL}${endpoint}`, {
