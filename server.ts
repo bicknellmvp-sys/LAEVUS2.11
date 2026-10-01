@@ -210,8 +210,9 @@ async function startServer() {
 
   // Enable CORS
   app.use(cors({
-    origin: 'https://laevus.onrender.com',
-    optionsSuccessStatus: 200
+    origin: '*',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'x-goog-api-key', 'x-ai-provider']
   }));
 
   app.use(express.json({ limit: '50mb' }));
