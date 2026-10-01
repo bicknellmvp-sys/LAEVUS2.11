@@ -1,10 +1,9 @@
 import express from 'express';
 import { createServer as createViteServer, loadEnv } from 'vite';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { GoogleGenAI, Modality, GenerateContentResponse, ThinkingLevel } from '@google/genai';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __dirname = path.resolve();
 
 const viteEnv = loadEnv(process.env.NODE_ENV || 'development', process.cwd(), '');
 const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY || viteEnv.GEMINI_API_KEY || viteEnv.API_KEY || viteEnv.GOOGLE_API_KEY || '';
