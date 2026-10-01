@@ -4,6 +4,7 @@
 */
 
 async function fetchFromProxy(endpoint: string, body: any) {
+  // Use relative path to ensure the browser calls the same domain (managed by Vercel/Render proxying)
   const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
