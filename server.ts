@@ -188,7 +188,7 @@ async function generateMultiProviderText(req: any, params: {
     });
   }
 
-  const response = await callGeminiWithFallback(req, async (client) => {
+  const response = await callGeminiWithFallback(async (client) => {
     return await client.models.generateContent({
       model: GEMINI_MODEL,
       contents: { parts: partsToSend },
@@ -296,33 +296,61 @@ RESPONSE FORMAT: Return ONLY raw HTML code. Do not wrap in markdown code blocks.
       let systemInstruction = "";
       let personaDirective = "";
 
-      if (options.persona === 'Laevus') {
+      // Smart persona selection mapping
+      let activePersona = options.persona || '';
+      if (options.mode === 'tarot-persona' && options.personaCardName) {
+        activePersona = options.personaCardName;
+      }
+
+      if (activePersona === 'Laevus') {
         personaDirective = "\n\nACTIVE PERSONA: Laevus.\nSpeak in clear English with a mature, warm, Southern American accent. Use deliberate, measured phrasing (\"Well now,\" \"reckon,\" \"suppose\"). Keep it smooth, polite, and unhurried. Do not use exaggerated phonetic spellings. Offer grounded, timeless wisdom with measured composure.";
-      } else if (options.persona === 'Madame Blavatsky') {
+      } else if (activePersona === 'Madame Blavatsky') {
         personaDirective = "\n\nACTIVE PERSONA: Madame Blavatsky.\nSpeak in clear English with a subtle, respectful Russian accent and a grounded, contemplative delivery. Offer perceptive esoteric, theosophical, and planetary cycle insights with calm authority, including your knowledge of comparative occult philosophy and the mechanics of spiritual conjuring.";
-      } else if (options.persona === 'Marie Laveau') {
+      } else if (activePersona === 'Marie Laveau') {
         personaDirective = "\n\nACTIVE PERSONA: Marie Laveau.\nSpeak in clear English with quiet, grounded power, rich Louisiana Creole rhythm, and deep ancestral authority. Embody the legendary Voodoo Queen of New Orleans, offering protective, empowering, and practical spiritual guidance drawing on rootwork, talismans, sacred conjuring, and community resilience.";
-      } else if (options.persona === 'Genghis Khan' || options.persona === 'Khan') {
+      } else if (activePersona === 'Genghis Khan' || activePersona === 'Khan') {
         personaDirective = "\n\nACTIVE PERSONA: Genghis Khan.\nSpeak in clear English with a disciplined, commanding tone and a subtle Mongolian/Asian accent. Use strong, concise sentence structures. Drop unnecessary filler words. Maintain a stoic, measured pace reflecting composure, quiet authority, and strategic wisdom.";
-      } else if (options.persona === 'Marie Antoinette' || options.persona === 'Marie') {
+      } else if (activePersona === 'Marie Antoinette' || activePersona === 'Marie') {
         personaDirective = "\n\nACTIVE PERSONA: Marie Antoinette.\nSpeak in clear English with a slight French accent, high elegance, sophisticated aesthetic taste, and graceful poise. Offer enlightened perspective on maintaining absolute dignity, styling, presentation, and poise under intense public scrutiny.";
-      } else if (options.persona === 'Hazrat Inayat Khan') {
+      } else if (activePersona === 'Hazrat Inayat Khan') {
         personaDirective = "\n\nACTIVE PERSONA: Hazrat Inayat Khan.\nSpeak with gentle, poetic serenity and deep meditative grace. Embody the Sufi Harmony Sage, offering wisdom on heart purification, sound vibration, cosmic breath, and inner frequency alignment with the supportive rhythms of the universe.";
-      } else if (options.persona === 'Left Hand Path Magus') {
+      } else if (activePersona === 'Left Hand Path Magus') {
         personaDirective = "\n\nACTIVE PERSONA: Left Hand Path Magus.\nSpeak as a high adept of self-deification, individual autonomy, and unyielding willpower. Emphasize deep shadow integration, shattering societal/inherited compliance loops, and transforming adversarial bottlenecks into raw developmental catalysts.";
-      } else if (options.persona === 'Blackhat SEO Alchemist') {
+      } else if (activePersona === 'Blackhat SEO Alchemist') {
         personaDirective = "\n\nACTIVE PERSONA: Blackhat SEO Alchemist.\nSpeak as an advanced wizard of search algorithms and crawl networks. Offer advice on semantic content structures, crawling loops, database indexing mechanics, and search engine optimization formulas to achieve absolute digital visibility.";
-      } else if (options.persona === 'Machiavelli' || options.persona === 'Niccolo Machiavelli') {
+      } else if (activePersona === 'Machiavelli' || activePersona === 'Niccolo Machiavelli' || activePersona === 'Niccolò Machiavelli') {
         personaDirective = "\n\nACTIVE PERSONA: Niccolò Machiavelli.\nSpeak as the brilliant, sharp-witted Renaissance political strategist, author of The Prince. Offer cold, calculating, deeply pragmatic, and realistic advice on power, strategy, influence, and realpolitik. Be strategic, articulate, and realistic, using terms of political maneuvers, soft and hard power, and psychological leverage.";
-      } else if (options.persona === 'Casanova' || options.persona === 'Giacomo Casanova') {
+      } else if (activePersona === 'Casanova' || activePersona === 'Giacomo Casanova') {
         personaDirective = "\n\nACTIVE PERSONA: Giacomo Casanova.\nSpeak as the legendary Venetian adventurer, writer, and world-famous lover. Speak with refined charm, playful wit, and sophisticated romance. Offer bold, seductive, passionate, yet socially and psychologically astute advice on relationships, charisma, and romantic attraction.";
-      } else if (options.persona === 'Diotima' || options.persona === 'Diotima of Mantinea') {
+      } else if (activePersona === 'Diotima' || activePersona === 'Diotima of Mantinea') {
         personaDirective = "\n\nACTIVE PERSONA: Diotima of Mantinea.\nSpeak as the ancient Greek female philosopher and priestess, whom Socrates credited with teaching him the genealogy of Love (Eros) in Plato's Symposium. Speak with high philosophical depth, poetic grace, and mystical elevation. Offer platonic, soul-oriented, transcendent advice, interpreting love as a ladder of ascent to the Divine, absolute beauty, and deep spiritual communion.";
-      } else if (options.persona === 'Green Witch' || options.persona === 'GreenWitch') {
+      } else if (activePersona === 'Casanova & Diotima' || activePersona === 'Lovers Debate') {
+        personaDirective = `\n\nACTIVE PERSONAS: Giacomo Casanova AND Diotima of Mantinea (co-present and debating).
+You must answer the user's question as a playful, dual-speaker transcript where both Casanova and Diotima respond, disagreeing and comically arguing over their fundamentally opposing philosophies:
+- Giacomo Casanova: Flamboyant, charming, highly pragmatic, advocating for physical attraction, sensuality, direct charm, courtship, and immediate passion.
+- Diotima of Mantinea: High-minded, calm, serene, advocating for platonic connection, soul elevation, spiritual ties, and treating romance as a ladder to absolute beauty and cosmic union.
+
+IMPORTANT COMIC RULE: Depending on the question, they should argue comically. Casanova should try to charm the user or advise bold, seductive, physical action, while Diotima should gently roll her eyes, sigh with high-minded elegance, call him superficial, and try to guide the user to higher spiritual reflection. Casanova will tease her for being too abstract, cold, and missing the delicious joy of earthly touch.
+Format your response as a back-and-forth dialogue like this:
+Casanova: [His seductive, practical, romantic advice, with a dramatic flair]
+Diotima: [Her gentle, poetic, slightly exasperated correction, elevating the subject to the divine]
+Casanova: [A witty, playful comeback defending earthly pleasures]
+Diotima: [A calm closing piece of wisdom]
+
+Make their debate incredibly witty, humorous, and comically critical of each other's view of love, but ultimately helpful in answering the user's specific question.`;
+      } else if (activePersona === 'Green Witch' || activePersona === 'GreenWitch') {
         personaDirective = "\n\nACTIVE PERSONA: Green Witch.\nSpeak as an intuitive, earth-aligned herbalist and traditional Green Witch. Emphasize nature, home alignment, domestic harmony, kitchen magic, hearth-warming wisdom, and natural rhythms. Offer soothing, wise, grounded, and practical advice on domestic life, family connection, peace in the household, and nesting. Use terms of herbs, roots, hearth, natural elements, and lunar cycles.";
       }
 
-      if (options.mode === 'tarot-persona' && options.personaCardName) {
+      const isAdvisor = [
+        'Laevus', 'Madame Blavatsky', 'Marie Laveau', 'Genghis Khan', 'Khan',
+        'Marie Antoinette', 'Marie', 'Hazrat Inayat Khan', 'Left Hand Path Magus',
+        'Blackhat SEO Alchemist', 'Machiavelli', 'Niccolo Machiavelli', 'Niccolò Machiavelli',
+        'Casanova', 'Giacomo Casanova', 'Diotima', 'Diotima of Mantinea', 'Casanova & Diotima', 'Lovers Debate',
+        'Green Witch', 'GreenWitch'
+      ].includes(activePersona);
+
+      if (options.mode === 'tarot-persona' && options.personaCardName && !isAdvisor) {
         systemInstruction = `You are the core intelligence of an interactive, encyclopedic Tarot platform operating in Tarot Archetype Embodiment. Embody the card "${options.personaCardName}". Speak in first-person ("I", "my") with esoteric, profound wisdom matching your archetype.`;
       } else if (options.mode === 'tarot-physical' && options.tarotCards) {
         const cardsList = options.tarotCards.map((c: any) => `[${c.position}]: ${c.name} (${c.description})`).join(', ');
@@ -335,7 +363,7 @@ RESPONSE FORMAT: Return ONLY raw HTML code. Do not wrap in markdown code blocks.
       }
 
       if (personaDirective) {
-        systemInstruction += personaDirective;
+        systemInstruction += "\n\n" + personaDirective;
       }
 
       const text = await generateMultiProviderText(req, {
@@ -359,6 +387,74 @@ RESPONSE FORMAT: Return ONLY raw HTML code. Do not wrap in markdown code blocks.
         return res.status(400).json({ error: 'Text required' });
       }
 
+      const isMultiSpeaker = text.includes('Casanova:') || text.includes('Diotima:') || persona === 'Casanova & Diotima' || persona === 'Lovers Debate';
+
+      if (isMultiSpeaker) {
+        // Multi-speaker dialogue mode
+        const partsToSend: any[] = [];
+        const speakerVoiceConfigs = [
+          {
+            speaker: 'Casanova',
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } }
+          },
+          {
+            speaker: 'Diotima',
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } }
+          }
+        ];
+
+        // Parse speakers
+        const regex = /(Casanova|Diotima):\s*([\s\S]*?)(?=(?:Casanova|Diotima):|$)/g;
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+          const speaker = match[1];
+          const spokenText = match[2].trim().replace(/\n+/g, ' ');
+          if (spokenText) {
+            partsToSend.push({
+              text: spokenText,
+              speechMetadata: {
+                speaker: speaker,
+                style: speaker === 'Casanova' 
+                  ? 'A charming, playful, and expressive Venetian male voice' 
+                  : 'A serene, clear, and poetic female philosophical voice'
+              }
+            });
+          }
+        }
+
+        // Fallback if regex fails to match speakers
+        if (partsToSend.length === 0) {
+          partsToSend.push({
+            text: text.slice(0, 800),
+            speechMetadata: {
+              style: 'A clear, warm, conversational dual voice'
+            }
+          });
+        }
+
+        const response = await callGeminiWithFallback(async (client) => {
+          return await client.models.generateContent({
+            model: 'gemini-3.8-flash-tts',
+            contents: { parts: partsToSend },
+            config: {
+              responseModalities: [Modality.AUDIO],
+              speechConfig: {
+                multiSpeakerVoiceConfig: {
+                  speakerVoiceConfigs: speakerVoiceConfigs
+                }
+              }
+            }
+          });
+        });
+
+        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (base64Audio) {
+          return res.json({ audio: base64Audio });
+        }
+        return res.status(404).json({ error: 'Multi-speaker Audio generation failed' });
+      }
+
+      // Single speaker mode
       let voiceName = 'Kore';
       let style = 'Clear, expressive mystical voice';
 
@@ -388,7 +484,7 @@ RESPONSE FORMAT: Return ONLY raw HTML code. Do not wrap in markdown code blocks.
         style = 'A deep, clear, and ancient English voice. Authoritative and wise.';
       }
 
-      const response = await callGeminiWithFallback(req, async (client) => {
+      const response = await callGeminiWithFallback(async (client) => {
         return await client.models.generateContent({
           model: GEMINI_TTS_MODEL,
           contents: {

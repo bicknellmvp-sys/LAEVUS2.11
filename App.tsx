@@ -15,10 +15,17 @@ const App: React.FC = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalRegisterMode, setAuthModalRegisterMode] = useState(false);
   
+  // API key & AI provider state
+  const [apiKey, setApiKey] = useState('');
+  const [keyInput, setKeyInput] = useState('');
+  const [selectedProvider, setSelectedProvider] = useState('auto');
+  const [isKeySaved, setIsKeySaved] = useState(false);
+  const [hasServerKey, setHasServerKey] = useState(false);
+  const [showKeyConfig, setShowKeyConfig] = useState(false);
+  
   // Controls which view is active from the menu ('chat' is default)
   const [activeView, setActiveView] = useState<string>('chat');
   const [isEmbedMode, setIsEmbedMode] = useState<boolean>(false);
-  const [activeChatPersona, setActiveChatPersona] = useState<string | null>(null);
 
   // Reference to call clear history in LaevusChat
   const clearHistoryFnRef = useRef<() => void>(() => {});
@@ -31,6 +38,24 @@ const App: React.FC = () => {
   }, [activeView]);
 
   useEffect(() => {
+    const storedKey = localStorage.getItem('CUSTOM_AI_KEY') || localStorage.getItem('GEMINI_API_KEY') || localStorage.getItem('laevus_gemini_api_key');
+    const storedProvider = localStorage.getItem('CUSTOM_AI_PROVIDER') || 'auto';
+    if (storedKey) {
+      setApiKey(storedKey);
+      setKeyInput(storedKey);
+      setIsKeySaved(true);
+    }
+    setSelectedProvider(storedProvider);
+
+    fetch('/api/gemini/status')
+      .then(res => res.json())
+      .then(data => {
+        if (data.hasKey) {
+          setHasServerKey(true);
+        }
+      })
+      .catch(() => {});
+
     // Dynamic but persistent session ID per tab session
     let savedSession = sessionStorage.getItem('laevus_session_id');
     if (!savedSession) {
@@ -51,7 +76,7 @@ const App: React.FC = () => {
       setIsEmbedMode(true);
     }
 
-    const validViews = ['divination', 'account', 'voice-settings', 'upload-spread', 'tarot', 'advisors', 'knowledge-base', 'transcripts', 'inner-work', 'chat'];
+    const validViews = ['divination', 'account', 'voice-settings', 'upload-spread', 'tarot', 'transcripts', 'inner-work', 'chat'];
 
     if (viewParam && validViews.includes(viewParam)) {
       setActiveView(viewParam);
@@ -84,6 +109,31 @@ const App: React.FC = () => {
     setIsAuthModalOpen(true);
   }, []);
 
+  const handleSaveKey = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!keyInput.trim()) return;
+    const cleanKey = keyInput.trim();
+    localStorage.setItem('CUSTOM_AI_KEY', cleanKey);
+    localStorage.setItem('GEMINI_API_KEY', cleanKey);
+    localStorage.setItem('laevus_gemini_api_key', cleanKey);
+    localStorage.setItem('CUSTOM_AI_PROVIDER', selectedProvider);
+    setApiKey(cleanKey);
+    setIsKeySaved(true);
+    window.location.reload();
+  };
+
+  const handleClearKey = () => {
+    localStorage.removeItem('CUSTOM_AI_KEY');
+    localStorage.removeItem('CUSTOM_AI_PROVIDER');
+    localStorage.removeItem('GEMINI_API_KEY');
+    localStorage.removeItem('laevus_gemini_api_key');
+    setApiKey('');
+    setKeyInput('');
+    setSelectedProvider('auto');
+    setIsKeySaved(false);
+    window.location.reload();
+  };
+
   return (
     <div 
       ref={rootScrollRef}
@@ -106,7 +156,7 @@ const App: React.FC = () => {
                   <span className="font-syne font-extrabold text-[#F8F7F4] tracking-tight">LAEVUS</span>
                   <span className="text-zinc-600">|</span>
                   <span className="text-[10px] text-[#DC143C] uppercase font-bold tracking-wider">
-                    {activeView === 'divination' ? 'Divination' : activeView === 'account' ? 'Account Hub' : activeView === 'tarot' ? '3-Card Oracle' : activeView === 'advisors' ? 'Sovereign Advisors' : activeView === 'knowledge-base' ? 'Knowledge Base' : activeView}
+                    {activeView === 'divination' ? 'Divination' : activeView === 'account' ? 'Account Hub' : activeView === 'tarot' ? '3-Card Oracle' : activeView}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -134,7 +184,6 @@ const App: React.FC = () => {
                 setActiveView={setActiveView}
                 currentUser={currentUser}
                 onOpenAuth={openAuthModal}
-                activeChatPersona={activeChatPersona}
               />
             )}
           </div>
@@ -144,7 +193,7 @@ const App: React.FC = () => {
             
             {/* DEDICATED VIEW: VOICE SETTINGS */}
             {activeView === 'voice-settings' && (
-              <VoiceSettings />
+              <VoiceSettings onReturnToChat={() => setActiveView('chat')} />
             )}
 
             {/* DEDICATED VIEW: MANUAL TAROT SPREAD UPLOAD */}
@@ -169,7 +218,6 @@ const App: React.FC = () => {
                 onRegisterClearHistory={handleRegisterClearHistory}
                 currentUser={currentUser}
                 onOpenAuth={openAuthModal}
-                onPersonaChange={setActiveChatPersona}
               />
             )}
 

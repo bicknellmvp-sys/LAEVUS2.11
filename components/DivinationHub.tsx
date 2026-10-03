@@ -37,6 +37,9 @@ export const DivinationHub: React.FC<DivinationHubProps> = ({
 
   // Rune state
   const [drawnRunes, setDrawnRunes] = useState<RuneData[]>([]);
+  const [runeQuestion, setRuneQuestion] = useState('');
+  const [selectedRuneAdvisor, setSelectedRuneAdvisor] = useState('Odin');
+  const [selectedRuneVoice, setSelectedRuneVoice] = useState('Laevus');
 
   const handleDrawRunes = () => {
     const shuffled = [...RUNE_DATABASE].sort(() => 0.5 - Math.random());
@@ -203,20 +206,161 @@ export const DivinationHub: React.FC<DivinationHubProps> = ({
       )}
 
 
+      {/* TAB CONTENT: PRIVATE PULL (PHYSICAL REALM SPREAD) */}
+      {activeTab === 'private_pull' && (
+        <UploadSpread
+          onReturnToChat={onReturnToChat}
+          onCompleteReading={(readingData) => {
+            if (onStartReading) {
+              const mappedCards = readingData.cards.map(c => ({
+                name: c.name,
+                position: c.position as any,
+                description: c.description,
+                symbol: c.symbol,
+                meaning: c.meaning,
+                image: c.image
+              }));
+              onStartReading(
+                `Synthesize this physical realm Tarot spread: "${readingData.question}"`,
+                'tarot-physical',
+                mappedCards,
+                { question: readingData.question }
+              );
+            }
+          }}
+        />
+      )}
+
+
       {/* TAB CONTENT: RUNES */}
       {activeTab === 'cast_your_lot' && (
         <div className="space-y-6 animate-fadeIn">
           <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-6 shadow-xl">
-            <h3 className="text-sm font-bold font-mono uppercase tracking-widest text-[#DC143C] mb-4">
-              Cast your lot
+            <h3 className="text-sm font-bold font-mono uppercase tracking-widest text-[#DC143C] mb-2">
+              Cast your lot (Rune Divination)
             </h3>
-            <button
-              onClick={handleDrawRunes}
-              className="px-5 py-2.5 rounded-xl bg-[#DC143C] hover:bg-[#B81132] text-white font-bold text-xs uppercase tracking-widest transition-all cursor-pointer shadow-[0_0_15px_rgba(220,20,60,0.4)]"
-            >
-              Draw 3 Runes
-            </button>
+            <p className="text-xs text-zinc-400 mb-4">
+              Focus your intent on the Norse cosmos. Enter your inquiry, select your reading advisor (defaults to Odin), pick your desired vocal medium, and draw three runes to illuminate your path.
+            </p>
+
+            {/* Rune Question */}
+            <div className="mb-4">
+              <label className="block text-[10px] font-mono uppercase text-zinc-500 mb-1.5">
+                Your Inquiry / Question (Optional)
+              </label>
+              <input
+                type="text"
+                value={runeQuestion}
+                onChange={(e) => setRuneQuestion(e.target.value)}
+                placeholder="e.g., What obstacles must I prepare to encounter?"
+                className="w-full bg-black border border-zinc-900 rounded-xl px-3 py-2 text-xs text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-[#DC143C]/50"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+              {/* Advisor Selector */}
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-zinc-500 mb-1.5">
+                  Reading Advisor (Defaults to Odin)
+                </label>
+                <select
+                  value={selectedRuneAdvisor}
+                  onChange={(e) => setSelectedRuneAdvisor(e.target.value)}
+                  className="w-full bg-black border border-zinc-900 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-[#DC143C]/50"
+                >
+                  <option value="Odin">Odin (The All-Father)</option>
+                  <option value="Madame Blavatsky">Madame Helena Blavatsky</option>
+                  <option value="Genghis Khan">Genghis Khan (The Conqueror)</option>
+                  <option value="Marie Antoinette">Marie Antoinette (Sovereign Queen)</option>
+                  <option value="Machiavelli">Niccolò Machiavelli</option>
+                  <option value="Left Hand Path Magus">Left Hand Path Magus</option>
+                  <option value="Blackhat SEO Alchemist">Blackhat SEO Alchemist</option>
+                  <option value="Hazrat Inayat Khan">Sufi Harmony Sage</option>
+                  <option value="Marie Laveau">Marie Laveau (Voodoo Priestess)</option>
+                  <option value="Casanova">Giacomo Casanova</option>
+                  <option value="Diotima">Diotima of Mantinea</option>
+                  <option value="Casanova & Diotima">Casanova & Diotima (Lovers Debate)</option>
+                </select>
+              </div>
+
+              {/* Voice Selector */}
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-zinc-500 mb-1.5">
+                  Speaking Voice (Defaults to Laevus)
+                </label>
+                <select
+                  value={selectedRuneVoice}
+                  onChange={(e) => setSelectedRuneVoice(e.target.value)}
+                  className="w-full bg-black border border-zinc-900 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-[#DC143C]/50"
+                >
+                  <option value="Laevus">Laevus Voice (Male)</option>
+                  <option value="Khan">Khan Voice (Male)</option>
+                  <option value="Madame Blavatsky">Madame Blavatsky Voice (Female)</option>
+                  <option value="Marie">Marie Antoinette Voice (Female)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleDrawRunes}
+                className="px-5 py-2.5 rounded-xl bg-[#DC143C] hover:bg-[#B81132] text-white font-bold text-xs uppercase tracking-widest transition-all cursor-pointer shadow-[0_0_15px_rgba(220,20,60,0.4)]"
+              >
+                {drawnRunes.length > 0 ? 'Cast New Runes' : 'Cast 3 Runes'}
+              </button>
+            </div>
           </div>
+
+          {/* Render Drawn Runes */}
+          {drawnRunes.length === 3 && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {drawnRunes.map((rune, idx) => (
+                  <div key={rune.name} className="bg-zinc-950 border border-zinc-900 rounded-2xl p-5 flex flex-col items-center text-center shadow-lg relative overflow-hidden group">
+                    <div className="absolute top-2 left-3 text-[9px] font-mono text-zinc-600 uppercase">
+                      RUNE {idx + 1}
+                    </div>
+                    <div className="w-16 h-16 rounded-full bg-black border border-zinc-800 flex items-center justify-center text-3xl font-syne text-[#DC143C] group-hover:scale-110 transition-transform duration-300 shadow-[0_0_15px_rgba(220,20,60,0.15)] mb-3 mt-1.5">
+                      {rune.symbol}
+                    </div>
+                    <h4 className="font-syne font-extrabold text-sm uppercase text-zinc-200 tracking-wider">
+                      {rune.name}
+                    </h4>
+                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mt-1">
+                      {rune.meaning}
+                    </span>
+                    <p className="text-[11px] text-zinc-400 font-google-sans leading-relaxed mt-2.5 border-t border-zinc-900 pt-2.5 w-full">
+                      {rune.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Consult Button */}
+              <div className="flex justify-center pt-2">
+                <button
+                  onClick={() => {
+                    const runesList = drawnRunes.map((r, idx) => `[Position ${idx + 1}]: ${r.name} (${r.meaning})`).join(', ');
+                    const promptText = runeQuestion.trim()
+                      ? `Perform a profound Norse Rune interpretation for my question: "${runeQuestion}". Runes cast: ${runesList}.`
+                      : `Perform a profound Norse Rune interpretation. Runes cast: ${runesList}.`;
+                    
+                    if (onStartReading) {
+                      onStartReading(promptText, 'tarot-persona', [], {
+                        persona: selectedRuneAdvisor,
+                        voice: selectedRuneVoice,
+                        runes: drawnRunes,
+                        runeQuestion: runeQuestion
+                      });
+                    }
+                  }}
+                  className="px-6 py-3 rounded-xl bg-[#DC143C] hover:bg-[#B81132] text-white font-bold text-xs uppercase tracking-widest transition-all cursor-pointer shadow-[0_0_20px_rgba(220,20,60,0.5)]"
+                >
+                  Consult {selectedRuneAdvisor} with these Runes
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -77,6 +77,7 @@ export const Hero: React.FC<HeroProps> = ({
     if (isDivinationView) return 'DIVINATION';
     if (activeView === 'advisors') return 'SOVEREIGN ADVISORS';
     if (activeView === 'knowledge-base') return 'KNOWLEDGE BASE';
+    if (activeView === 'encyclopedia') return 'TAROT ENCYCLOPEDIA';
     if (activeView === 'voice-settings') return 'VOICE SETTINGS';
     if (activeView === 'account' || activeView === 'inner-work' || activeView === 'transcripts') return 'ACCOUNT & INSIGHTS';
     if (activeView === 'chat' && activeChatPersona) {
@@ -131,16 +132,31 @@ export const Hero: React.FC<HeroProps> = ({
                 className="absolute right-0 top-full mt-2 w-60 bg-black/95 backdrop-blur-md border border-zinc-800 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.9),0_0_30px_rgba(220,20,60,0.15)] p-2 z-50 normal-case tracking-normal text-zinc-300 animate-fadeIn border-t-2 border-t-[#DC143C]"
               >
               <div className="space-y-1 font-mono">
-                {/* Sign up / Log in */}
+                {/* Sign up / Log in with custom pulsing glow style block */}
+                <style dangerouslySetInnerHTML={{__html: `
+                  @keyframes crimson-pulse {
+                    0%, 100% {
+                      box-shadow: 0 0 4px rgba(220, 20, 60, 0.4), inset 0 0 2px rgba(220, 20, 60, 0.2);
+                      border-color: rgba(220, 20, 60, 0.4);
+                    }
+                    50% {
+                      box-shadow: 0 0 14px rgba(220, 20, 60, 0.95), inset 0 0 4px rgba(220, 20, 60, 0.45);
+                      border-color: rgba(220, 20, 60, 0.95);
+                    }
+                  }
+                  .crimson-pulsing-glow {
+                    animation: crimson-pulse 2s infinite ease-in-out;
+                  }
+                `}} />
                 <button
                   onClick={() => {
                     setIsOpen(false);
                     onOpenAuth(false);
                   }}
-                  className="w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between transition-all duration-200 uppercase font-google-sans cursor-pointer group bg-zinc-900/80 text-[#DC143C] font-bold shadow-sm hover:bg-zinc-900 mb-1 border border-zinc-800"
+                  className="w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between transition-all duration-200 uppercase font-google-sans cursor-pointer group bg-black hover:bg-zinc-950 mb-1 border border-[#DC143C]/40 crimson-pulsing-glow"
                 >
-                  <span className="font-bold text-[11px] tracking-wider">Sign up / Log in</span>
-                  <span className="text-[#DC143C] text-[10px]">→</span>
+                  <span className="font-bold text-[11px] tracking-wider text-white group-hover:text-zinc-200 transition-colors">Sign up / Log in</span>
+                  <span className="text-[#DC143C] text-[10px] group-hover:translate-x-0.5 transition-transform">→</span>
                 </button>
 
                 {/* 0. LAEVUS */}
@@ -180,7 +196,7 @@ export const Hero: React.FC<HeroProps> = ({
                       : 'text-zinc-300 hover:bg-zinc-900/60 hover:text-[#DC143C] active:text-[#DC143C]'
                   }`}
                 >
-                  <span className="font-bold text-[11px] tracking-wider group-hover:text-[#DC143C] group-active:text-[#DC143C] transition-colors font-google-sans">Knowledge Base</span>
+                  <span className="font-bold text-[11px] tracking-wider group-hover:text-[#DC143C] group-active:text-[#DC143C] transition-colors font-google-sans font-bold">Knowledge Base</span>
                   {activeView === 'knowledge-base' && <span className="text-[#DC143C] text-[10px]">●</span>}
                 </button>
 

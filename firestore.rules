@@ -1,18 +1,54 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
-    function isSignedIn() { return request.auth != null; }
-    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
-    
-    // Default deny all
+    // 1. Global Safety Net
     match /{document=**} {
       allow read, write: if false;
     }
-    
-    // User data
+
+    // 3. Primitive Definition
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    function incoming() {
+      return request.resource.data;
+    }
+    function existing() {
+      return resource.data;
+    }
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // 2. Validation Blueprint for User
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'uid'])
+        && data.email is string && data.email.size() <= 256
+        && data.uid is string && data.uid.size() <= 128
+        && (data.get('createdAt', '') == '' || data.createdAt is string)
+        && (data.get('lastLoginAt', '') == '' || data.lastLoginAt is string)
+        && (data.get('messages', []) is list)
+        && (data.get('transcripts', []) is list)
+        && (data.get('sentimentScores', []) is list)
+        && (data.get('loginHistory', []) is list);
+    }
+
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().uid == userId;
+      allow update: if isOwner(userId) && isValidUser(incoming())
+        && (
+          // Action: Sync history/login
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'lastLoginAt', 'messages', 'transcripts', 'sentimentScores', 'loginHistory'
+          ])
+          // Action: Identity update (though typically immutable, allow if merge: true is used with same ID)
+          || incoming().diff(existing()).affectedKeys().hasOnly(['email', 'uid', 'lastLoginAt', 'messages', 'transcripts', 'sentimentScores', 'loginHistory'])
+        );
+      allow delete: if false; // Users cannot delete their profiles via client SDK
     }
   }
 }

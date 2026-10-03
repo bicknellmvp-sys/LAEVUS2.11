@@ -33,50 +33,50 @@ export const PERSONA_PROFILES: Record<PersonaId, PersonaProfile> = {
   'Madame Blavatsky': {
     id: 'Madame Blavatsky',
     title: 'Madame Blavatsky',
-    accent: 'Subtle Russian accent, grounded tone',
+    accent: 'Accentuated Russian accent, grounded tone',
     tone: 'Russian Accent / Grounded',
-    description: 'Subtle Russian accent in English with a grounded, contemplative delivery.',
+    description: 'Accentuated Russian accent with a grounded, contemplative delivery.',
     defaultPitch: 0.85,
     defaultSpeed: 0.90,
     voiceGender: 'female',
-    preferredLang: 'en-US',
-    systemPromptDirective: 'Speak in clear English with a subtle Russian accent and a grounded, contemplative tone. The accent should be light and natural, not heavy.'
+    preferredLang: 'en-GB',
+    systemPromptDirective: 'Speak with an accentuated Russian accent and a grounded, perceptive tone.'
   },
   'Laevus': {
     id: 'Laevus',
     title: 'Laevus',
-    accent: 'Mature, weathered Southern American accent, not too heavy',
+    accent: 'Older, weathered Southern American accent',
     tone: 'Southern American / Weathered',
-    description: 'Mature Southern American accent, warm, unhurried, and grounded.',
+    description: 'Older, weathered Southern American accent, deep, warm, and reflective.',
     defaultPitch: 0.78,
     defaultSpeed: 0.85,
     voiceGender: 'male',
     preferredLang: 'en-US',
-    systemPromptDirective: 'Speak in clear English with a mature, warm, Southern American accent. Use deliberate, measured phrasing ("Well now," "reckon," "suppose"). Keep it smooth, polite, and unhurried. Do not use exaggerated phonetic spellings.'
+    systemPromptDirective: 'Speak with an older, weathered Southern American accent, deep, warm, and reflective composure.'
   },
   'Khan': {
     id: 'Khan',
     title: 'Khan',
-    accent: 'Disciplined, commanding Mongolian/Asian English accent, direct, stoic, and rhythmic',
-    tone: 'Commanding / Subtle Mongolian/Asian Accent',
-    description: 'Disciplined, commanding Mongolian/Asian English accent, direct, stoic, and rhythmic.',
+    accent: 'Subtle Chinese accent, commanding historical timbre',
+    tone: 'Commanding / Subtle Chinese Accent',
+    description: 'Subtle Chinese accent with a commanding and disciplined historical timbre.',
     defaultPitch: 0.75,
     defaultSpeed: 0.90,
     voiceGender: 'male',
     preferredLang: 'en-US',
-    systemPromptDirective: 'Speak in clear English with a disciplined, commanding tone and a subtle Mongolian/Asian accent. Use strong, concise sentence structures. Drop unnecessary filler words. Maintain a stoic, measured pace reflecting composure and quiet authority.'
+    systemPromptDirective: 'Speak with a subtle Chinese accent, commanding and disciplined historical timbre.'
   },
   'Marie': {
     id: 'Marie',
     title: 'Marie',
     accent: 'Slight French accent',
     tone: 'French Accent / Elegant',
-    description: 'Slight French accent in English with elegant, lucid clarity.',
+    description: 'Slight French accent with elegant, lucid clarity.',
     defaultPitch: 1.05,
     defaultSpeed: 0.92,
     voiceGender: 'female',
-    preferredLang: 'en-US',
-    systemPromptDirective: 'Speak in clear English with a slight French accent, poised, articulate, and elegant. The accent should be subtle and maintain smooth English flow.'
+    preferredLang: 'en-GB',
+    systemPromptDirective: 'Speak with a slight French accent, poised, articulate, and elegant.'
   }
 };
 
@@ -84,7 +84,7 @@ export const PERSONA_SAMPLES: Record<PersonaId, string> = {
   'Madame Blavatsky': 'Greetings. I am Madame Blavatsky. Truth is the sovereign light behind all veiled mysteries.',
   'Laevus': 'Welcome, friend. I am Laevus. Time moves like a deep river, carrying ancient wisdom in its quiet currents.',
   'Khan': 'I am Khan. Strategy, discipline, and unyielding focus pave the true path to victory.',
-  'Marie': 'Hello. I am Marie. Reason and luminous clarity illuminate even the darkest questions.'
+  'Marie': 'Bonjour. I am Marie. Reason and luminous clarity illuminate even the darkest questions.'
 };
 
 const STORAGE_KEY = 'laevus_voice_settings_v3';
@@ -210,31 +210,33 @@ class VoiceEngine {
     if (!voices || voices.length === 0) return null;
 
     const profile = PERSONA_PROFILES[persona];
+    const englishVoices = voices.filter(v => v.lang.toLowerCase().startsWith('en') || v.lang.toLowerCase().includes('en-'));
+    const pool = englishVoices.length > 0 ? englishVoices : voices;
 
-    if ((persona as string) === 'Sophisticated Gentleman') {
-      const gbMatch = voices.find(v => v.lang.toLowerCase().includes('en-gb') || /uk|british|gb|daniel|oliver|arthur/i.test(v.name));
-      if (gbMatch) return gbMatch;
-    } else if (persona === 'Marie') {
-      const frMatch = voices.find(v => v.lang.toLowerCase().includes('fr') || /french|france|marie|celine/i.test(v.name));
-      if (frMatch) return frMatch;
+    if (persona === 'Marie') {
+      // Find female voice, preferably UK/British or Irish for elegant/refined cadence
+      const premiumFemale = pool.find(v => /google|natural|premium/i.test(v.name) && /female|zira|samantha|victoria|moira|serena/i.test(v.name) && (v.lang.includes('GB') || v.lang.includes('IE') || v.lang.includes('US')));
+      if (premiumFemale) return premiumFemale;
+      const female = pool.find(v => /female|zira|samantha|victoria|moira|serena|karen/i.test(v.name));
+      if (female) return female;
     } else if (persona === 'Madame Blavatsky') {
-      const ruMatch = voices.find(v => v.lang.toLowerCase().includes('ru') || /russian|milena|katya/i.test(v.name));
-      if (ruMatch) return ruMatch;
+      // Find female voice, preferably UK/British or deeper tone
+      const deepFemale = pool.find(v => /female|victoria|moira|hazel|karen/i.test(v.name) && v.lang.includes('GB'));
+      if (deepFemale) return deepFemale;
+      const female = pool.find(v => /female|zira|samantha|victoria|moira|serena|karen/i.test(v.name));
+      if (female) return female;
     } else if (persona === 'Laevus') {
-      const usMatch = voices.find(v => v.lang.toLowerCase().includes('en-us') || /united states|american|david|samantha/i.test(v.name));
+      const usMatch = pool.find(v => v.lang.toLowerCase().includes('en-us') || /united states|american|david|samantha/i.test(v.name));
       if (usMatch) return usMatch;
     } else if (persona === 'Khan') {
-      const deepMatch = voices.find(v => /david|george|james|tom|male/i.test(v.name) && v.lang.startsWith('en'));
+      const deepMatch = pool.find(v => /david|george|james|tom|male/i.test(v.name));
       if (deepMatch) return deepMatch;
     }
 
     if (profile.preferredLang) {
-      const langMatches = voices.filter((v) => v.lang.toLowerCase().startsWith(profile.preferredLang!.toLowerCase().slice(0, 2)));
+      const langMatches = pool.filter((v) => v.lang.toLowerCase().startsWith(profile.preferredLang!.toLowerCase().slice(0, 2)));
       if (langMatches.length > 0) return langMatches[0];
     }
-
-    const englishVoices = voices.filter((v) => v.lang.startsWith('en'));
-    const pool = englishVoices.length > 0 ? englishVoices : voices;
 
     if (profile.voiceGender === 'female') {
       const femaleMatches = pool.filter((v) =>

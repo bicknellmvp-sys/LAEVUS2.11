@@ -3,16 +3,14 @@ import { metaphysicalConsultation } from '../services/gemini';
 import { voiceEngine, getSavedVoiceSettings } from '../services/voiceSynthesis';
 import { speechToTextEngine } from '../services/speechToText';
 import { db } from '../services/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { User } from 'firebase/auth';
+import { doc, getDoc, setDoc, getDocFromServer } from 'firebase/firestore';
+import { User, getAuth } from 'firebase/auth';
 import { DivinationHub } from './DivinationHub';
-import { AdvisorsHub } from './AdvisorsHub';
 import { KnowledgeBase } from './KnowledgeBase';
+import { TarotEncyclopedia } from './TarotEncyclopedia';
 import { AccountHub, TranscriptRecord } from './AccountHub';
 import { SocialShareModal, ShareContent } from './SocialShareModal';
 import { TAROT_DATABASE, TarotCardData as UniversalTarotCardData } from '../data/tarotCards';
-import { useChatSync } from '../src/hooks/useChatSync';
-import { ThinkingIndicator } from './ThinkingIndicator';
 
 interface Message {
   id: string;
@@ -186,7 +184,28 @@ interface LaevusChatProps {
   onRegisterClearHistory?: (handler: () => void) => void;
   currentUser: User | null;
   onOpenAuth: (registerMode: boolean) => void;
-  onPersonaChange?: (persona: string | null) => void;
+}
+
+function handleFirestoreError(error: any, operationType: 'create' | 'update' | 'delete' | 'list' | 'get' | 'write', path: string | null) {
+  const currentAuth = getAuth();
+  const errInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: currentAuth.currentUser?.uid,
+      email: currentAuth.currentUser?.email,
+      emailVerified: currentAuth.currentUser?.emailVerified,
+      isAnonymous: currentAuth.currentUser?.isAnonymous,
+      tenantId: currentAuth.currentUser?.tenantId,
+      providerInfo: currentAuth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
 }
 
 export const LaevusChat: React.FC<LaevusChatProps> = ({
@@ -194,8 +213,7 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
   setActiveView,
   onRegisterClearHistory,
   currentUser,
-  onOpenAuth,
-  onPersonaChange
+  onOpenAuth
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -203,7 +221,6 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
   const [readingCount, setReadingCount] = useState<number>(0);
   
   const [activeTarotPersona, setActiveTarotPersona] = useState<string | null>(null);
-  const [activeCustomPersona, setActiveCustomPersona] = useState<string | null>(null);
   
   // Tarot State
   const [tarotQuestion, setTarotQuestion] = useState('');
@@ -224,19 +241,6 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
   const [sentimentScores, setSentimentScores] = useState<number[]>([35, 45, 40, 60, 50]);
   const [transcripts, setTranscripts] = useState<TranscriptRecord[]>([]);
 
-  // Periodically sync chat history to Firestore so users can resume conversations across sessions
-  useChatSync({
-    currentUser,
-    messages,
-    setMessages,
-    transcripts,
-    setTranscripts,
-    sentimentScores,
-    setSentimentScores,
-    readingCount,
-    setReadingCount
-  });
-
   // Social Share & Copy state
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -246,6 +250,32 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
   const [isListening, setIsListening] = useState(false);
 
   const activePersonaName = getSavedVoiceSettings().persona;
+
+  const getVoiceForCharacter = (characterName: string) => {
+    try {
+      const saved = localStorage.getItem('laevus_character_voices');
+      if (saved) {
+        const mapping = JSON.parse(saved);
+        if (mapping[characterName]) return mapping[characterName];
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    // Fallback default assignments
+    const femaleChars = ['Madame Helena Blavatsky', 'Madame Blavatsky', 'Marie Antoinette', 'Diotima', 'Marie Laveau', 'Voodoo Priestess', 'Diotima of Mantinea'];
+    const isFemale = femaleChars.some(c => characterName.toLowerCase().includes(c.toLowerCase()));
+    if (isFemale) {
+      if (characterName.includes('Marie Antoinette') || characterName.includes('Marie')) {
+        return 'Marie';
+      }
+      return 'Madame Blavatsky';
+    } else {
+      if (characterName === 'Laevus' || characterName === 'Odin' || characterName === 'Casanova' || characterName === 'Hazrat Inayat Khan') {
+        return 'Laevus';
+      }
+      return 'Khan';
+    }
+  };
 
   const handleToggleVoiceInput = () => {
     if (isListening) {
@@ -406,6 +436,8 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
   useEffect(() => {
     const syncUserHistory = async () => {
       if (!currentUser) return;
+      
+      const path = `users/${currentUser.uid}`;
       try {
         const userDocRef = doc(db, 'users', currentUser.uid);
         const docSnap = await getDoc(userDocRef);
@@ -467,7 +499,7 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
           }, { merge: true });
         }
       } catch (err) {
-        console.error("Firestore sync failed:", err);
+        handleFirestoreError(err, 'write', path);
       }
     };
 
@@ -477,9 +509,10 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
   // Sync transcripts with Firestore when active
   useEffect(() => {
     if (currentUser && transcripts.length > 0) {
+      const path = `users/${currentUser.uid}`;
       const userDocRef = doc(db, 'users', currentUser.uid);
       setDoc(userDocRef, { transcripts }, { merge: true }).catch(err => {
-        console.error("Failed to mirror transcripts to cloud:", err);
+        handleFirestoreError(err, 'write', path);
       });
     }
   }, [transcripts, currentUser]);
@@ -487,9 +520,10 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
   // Sync sentiment scores with Firestore when active
   useEffect(() => {
     if (currentUser && sentimentScores.length > 0) {
+      const path = `users/${currentUser.uid}`;
       const userDocRef = doc(db, 'users', currentUser.uid);
       setDoc(userDocRef, { sentimentScores }, { merge: true }).catch(err => {
-        console.error("Failed to mirror sentiment scores to cloud:", err);
+        handleFirestoreError(err, 'write', path);
       });
     }
   }, [sentimentScores, currentUser]);
@@ -503,18 +537,14 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
         localStorage.removeItem('laevus_sentiment_timeline');
         setTranscripts([]);
         setSentimentScores([35, 45, 40, 60, 50]);
-        setActiveCustomPersona(null);
-        setActiveTarotPersona(null);
-        if (onPersonaChange) {
-          onPersonaChange(null);
-        }
         const currUser = currentUserRef.current;
         if (currUser) {
+          const path = `users/${currUser.uid}`;
           try {
             const userDocRef = doc(db, 'users', currUser.uid);
             await setDoc(userDocRef, { messages: [], transcripts: [], sentimentScores: [] }, { merge: true });
           } catch (err) {
-            console.error("Failed to clear Firestore history:", err);
+            handleFirestoreError(err, 'write', path);
           }
         }
         loadDefaultWelcome();
@@ -527,13 +557,14 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
       localStorage.setItem('laevus_chat_history_v3', JSON.stringify(messages));
       
       if (currentUser) {
+        const path = `users/${currentUser.uid}`;
         const userDocRef = doc(db, 'users', currentUser.uid);
         const serialized = messages.map(m => ({
           ...m,
           timestamp: m.timestamp.toISOString()
         }));
         setDoc(userDocRef, { messages: serialized }, { merge: true }).catch(err => {
-          console.error("Failed to mirror messages to Firestore:", err);
+          handleFirestoreError(err, 'write', path);
         });
       }
     }
@@ -614,7 +645,7 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
     textToSend: string, 
     forceMode?: 'laevus' | 'tarot' | 'tarot-persona' | 'tarot-physical', 
     customCards?: TarotCard[],
-    extraInfo?: { followUpQuestion?: string; primaryQuestion?: string; persona?: string }
+    extraInfo?: { followUpQuestion?: string; primaryQuestion?: string }
   ) => {
     if (!textToSend.trim() && !customCards) return;
     if (isTyping) return;
@@ -696,7 +727,8 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
         };
 
         setMessages(prev => [...prev, modelMsg]);
-        voiceEngine.speak(reply);
+        const speakVoice = getVoiceForCharacter(normalizedCardName);
+        voiceEngine.speak(reply, { persona: speakVoice });
 
         addTranscriptRecord(
           'madam',
@@ -802,18 +834,19 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
           }
         );
       } else {
-        const activePersona = extraInfo?.persona || activeCustomPersona || currentVoiceSettings.persona;
         reply = await metaphysicalConsultation(
           trimmedText,
           formattedHistory,
           {
             mode: 'laevus',
             readingCount: nextCount,
-            persona: activePersona
+            persona: currentVoiceSettings.persona
           }
         );
       }
-      
+
+      await new Promise(resolve => setTimeout(resolve, 800));
+
       const modelMsg: Message = {
         id: crypto.randomUUID(),
         role: 'model',
@@ -823,7 +856,8 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
       };
 
       setMessages(prev => [...prev, modelMsg]);
-      voiceEngine.speak(reply);
+      const speakVoice = activeTarotPersona ? getVoiceForCharacter(activeTarotPersona) : getSavedVoiceSettings().persona;
+      voiceEngine.speak(reply, { persona: speakVoice });
 
       // Save to transcripts
       if ((currentMode === 'tarot' || currentMode === 'tarot-physical') && customCards) {
@@ -849,11 +883,10 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
           }
         );
       } else {
-        const activePersona = extraInfo?.persona || activeCustomPersona || currentVoiceSettings.persona;
         addTranscriptRecord(
           'madam',
-          `Consultation with ${activePersona}`,
-          `User: ${trimmedText}\n\n${activePersona}: ${reply}`,
+          `Consultation with ${currentVoiceSettings.persona}`,
+          `User: ${trimmedText}\n\n${currentVoiceSettings.persona}: ${reply}`,
           {
             querentPrompt: trimmedText,
             madamBlavatskyReply: reply
@@ -891,9 +924,6 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
 
   const handleSummonTarotPersona = (cardName: string) => {
     setActiveTarotPersona(cardName);
-    if (onPersonaChange) {
-      onPersonaChange(cardName);
-    }
     const summonMsg: Message = {
       id: crypto.randomUUID(),
       role: 'model',
@@ -924,41 +954,16 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
       mode: 'laevus'
     };
     setActiveTarotPersona(null);
-    if (onPersonaChange) {
-      onPersonaChange(null);
-    }
     setMessages(prev => [...prev, releaseMsg]);
   };
 
-  const handleStartPersonaConversation = (promptText: string, personaName: string) => {
-    setActiveCustomPersona(personaName);
-    setActiveTarotPersona(null);
-    if (onPersonaChange) {
-      onPersonaChange(personaName);
+  const handleStartEncyclopediaConversation = (cardName: string, questionText: string) => {
+    handleSummonTarotPersona(cardName);
+    if (questionText.trim()) {
+      setTimeout(() => {
+        handleSend(questionText, 'tarot-persona');
+      }, 500);
     }
-    
-    const summonMsg: Message = {
-      id: crypto.randomUUID(),
-      role: 'model',
-      text: `[ Summoned advisor: ${personaName.toUpperCase()} ]\n\nI have aligned my energy with this realm to guide you. Speak your query.`,
-      timestamp: new Date()
-    };
-    
-    setMessages([
-      {
-        id: 'welcome',
-        role: 'model',
-        text: `You have entered the counsel of ${personaName}. Speak your truth.`,
-        timestamp: new Date()
-      },
-      summonMsg
-    ]);
-    
-    setActiveView('chat');
-    
-    setTimeout(() => {
-      handleSend(promptText, 'laevus', undefined, { persona: personaName });
-    }, 500);
   };
 
   const handleDrawTarot = async () => {
@@ -1040,12 +1045,25 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
     setPhysicalFutureCard('');
   };
 
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if(error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration.");
+        }
+      }
+    };
+    testConnection();
+  }, []);
+
   return (
     <div className={`w-full px-2 sm:px-4 md:px-6 py-1 flex flex-col relative font-google-sans text-zinc-300 ${activeView === 'chat' ? 'flex-1 min-h-0 h-full overflow-hidden' : 'h-auto overflow-y-auto'}`}>
 
       {/* VIEW: PRIMARY ORACLE CHAT */}
       {activeView === 'chat' && (
-        <div className="flex-1 min-h-0 flex flex-col p-1 pb-1 relative animate-fadeIn w-full max-w-5xl mx-auto overflow-hidden font-google-sans justify-between">
+        <div className="flex-1 min-h-0 flex flex-col p-1 mb-2 relative animate-fadeIn w-full max-w-5xl mx-auto overflow-hidden font-google-sans">
           
           {/* Active Tarot Persona Banner */}
           {activeTarotPersona && (
@@ -1060,39 +1078,9 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
                   </div>
                 </div>
               </div>
-              
-              {/* No depart button */}
-            </div>
-          )}
-
-          {/* Active Custom Persona Banner */}
-          {activeCustomPersona && (
-            <div className="px-4 py-2 bg-black flex items-center justify-between text-xs mb-2 rounded-lg border border-red-500/25 flex-shrink-0 font-google-sans text-red-400">
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-red-500 font-bold">Advisor</span>
-                <div className="font-google-sans text-left">
-                  <div className="flex items-center">
-                    <span className="font-bold text-zinc-200 font-google-sans">{activeCustomPersona}</span>
-                    <span className="mx-2 text-zinc-700">|</span>
-                    <span className="text-zinc-500 text-[10px] font-google-sans">Sovereign counsel of power & desire</span>
-                  </div>
-                </div>
-              </div>
               <button
-                onClick={() => {
-                  const releaseMsg: Message = {
-                    id: crypto.randomUUID(),
-                    role: 'model',
-                    text: `[ Ended consultation with ${activeCustomPersona}. LAEVUS returns as your primary guide. ]`,
-                    timestamp: new Date()
-                  };
-                  setActiveCustomPersona(null);
-                  if (onPersonaChange) {
-                    onPersonaChange(null);
-                  }
-                  setMessages(prev => [...prev, releaseMsg]);
-                }}
-                className="px-2.5 py-1 rounded bg-black text-red-400 text-[9px] uppercase hover:bg-red-500/10 transition-colors cursor-pointer border border-zinc-900 font-google-sans"
+                onClick={handleReleaseTarotPersona}
+                className="px-2.5 py-1 rounded bg-black text-amber-400 text-[9px] uppercase hover:bg-amber-500/10 transition-colors cursor-pointer border border-zinc-900 font-google-sans"
               >
                 Depart
               </button>
@@ -1101,27 +1089,25 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
 
 
           {/* Top Header Bar outside the chat box */}
-          <div className="w-full flex items-center justify-between px-2 mb-1 text-[10px] font-mono uppercase tracking-wider text-zinc-400 shrink-0">
+          <div className="w-full flex items-center justify-between px-2 mb-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
             <span className="text-zinc-500 font-bold">
-              {activeTarotPersona ? activeTarotPersona.toUpperCase() : activeCustomPersona ? activeCustomPersona.toUpperCase() : (getSavedVoiceSettings().enabled === false ? 'LAEVUS' : activePersonaName.toUpperCase())}
+              {activeTarotPersona ? activeTarotPersona.toUpperCase() : (getSavedVoiceSettings().enabled === false ? 'LAEVUS' : activePersonaName.toUpperCase())}
             </span>
-            {messages.length > 0 && (
-              <button
-                onClick={handleShareEntireConversation}
-                className="px-0 py-0 text-zinc-500 hover:text-[#DC143C] transition-all cursor-pointer text-[9px] uppercase tracking-wider font-mono"
-                title="Share Conversation"
-              >
-                Share
-              </button>
-            )}
+            <button
+              onClick={handleShareEntireConversation}
+              className="text-zinc-400 hover:text-[#DC143C] transition-colors flex items-center gap-1 cursor-pointer uppercase text-[9px] bg-transparent border-0 p-0"
+            >
+              <span>Share</span>
+              <span>↗</span>
+            </button>
           </div>
 
-          {/* Enlarged AI Chat Box (Messages Container) */}
+          {/* Unified Oracle Ledger (Box Removed) */}
           <div 
             ref={messagesContainerRef}
-            className="flex-1 min-h-0 py-6 px-2 sm:px-4 overflow-y-auto space-y-6 text-[#F8F7F4] flex flex-col relative my-1"
+            className="flex-1 py-4 px-6 overflow-y-auto space-y-4 text-[#F8F7F4] flex flex-col relative mb-3 bg-black border border-zinc-900 rounded-xl shadow-xl"
           >
-            <div className="flex-1 space-y-6 w-full max-w-5xl mx-auto text-xs leading-relaxed">
+            <div className="flex-1 space-y-4 w-full max-w-4xl mx-auto text-xs leading-relaxed">
               {messages.map((m) => {
                  const isUser = m.role === 'user';
                  const userDisplay = currentUser 
@@ -1130,25 +1116,23 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
                  return (
                    <div 
                      key={m.id}
-                     className={`w-full flex my-3 animate-fadeIn px-2 ${isUser ? 'justify-end' : 'justify-start'}`}
+                     className="w-full flex flex-col items-center text-center my-4 animate-fadeIn px-4"
                    >
                      {isUser ? (
-                       <div className="flex flex-col items-end max-w-[90%] sm:max-w-[80%]">
-                         <div className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest mb-1 mr-1">
+                       <div className="w-full text-center my-2">
+                         <div className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest mb-1.5">
                            {userDisplay.toUpperCase()}
                          </div>
-                         <div className="text-zinc-100 px-1 py-1 text-left font-google-sans text-xs">
-                           <p className="whitespace-pre-wrap font-google-sans text-xs text-[#DC143C] font-bold tracking-wide">
-                             {m.text}
-                           </p>
-                         </div>
+                         <p className="whitespace-pre-wrap font-google-sans text-xs text-[#DC143C] font-bold tracking-wide">
+                           {m.text}
+                         </p>
                        </div>
                      ) : (
-                       <div className="flex flex-col items-start max-w-[90%] sm:max-w-[80%]">
-                         <div className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest mb-1 ml-1">
-                           {activeTarotPersona ? activeTarotPersona.toUpperCase() : activeCustomPersona ? activeCustomPersona.toUpperCase() : activePersonaName.toUpperCase()}
+                       <div className="w-full text-center my-3">
+                         <div className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest mb-1.5">
+                           {activeTarotPersona ? activeTarotPersona.toUpperCase() : activePersonaName.toUpperCase()}
                          </div>
-                         <div className="text-[#F8F7F4] px-1 py-1 text-left font-google-sans text-xs leading-relaxed">
+                         <div className="text-[#F8F7F4] drop-shadow-[0_0_10px_rgba(220,20,60,0.3)] leading-relaxed">
                            <TypewriterText text={m.text} />
                          </div>
                        </div>
@@ -1158,16 +1142,21 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
               })}
               
               {isTyping && (
-                <ThinkingIndicator personaName={activeTarotPersona || activeCustomPersona || activePersonaName} />
+                <div className="w-full text-center py-4">
+                  <div className="inline-flex items-center gap-2 bg-zinc-900/80 px-4 py-2 rounded-xl border border-zinc-800">
+                    <span className="w-2 h-2 rounded-full bg-[#DC143C] animate-ping" />
+                    <span className="text-[9px] text-[#DC143C] uppercase tracking-widest animate-pulse font-mono">The digital spirits are formulating response...</span>
+                  </div>
+                </div>
               )}
               <div ref={chatEndRef} />
             </div>
           </div>
 
-          {/* User Chat Bar positioned just above footer */}
-          <div className="pt-2 pb-1 bg-transparent shrink-0 w-full">
+          {/* Input block with a slight gap */}
+          <div className="pt-4 pb-2 bg-transparent">
             {/* Text input form */}
-            <div className="relative flex items-center rounded-xl bg-black border border-zinc-800 focus-within:ring-1 focus-within:ring-[#DC143C]/40 transition-all p-2 gap-2 shadow-2xl">
+            <div className="relative flex items-center rounded-xl bg-black border border-zinc-900 focus-within:ring-1 focus-within:ring-[#DC143C]/40 transition-all p-1.5 gap-2 shadow-xl">
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -1180,7 +1169,7 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
                 disabled={isTyping}
                 placeholder="Type your message here..."
                 rows={2}
-                className="flex-1 bg-transparent text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none px-2.5 py-1.5 resize-none font-google-sans"
+                className="flex-1 bg-transparent text-xs text-zinc-300 placeholder-zinc-700 focus:outline-none px-2.5 py-1.5 resize-none font-google-sans"
               />
               <button
                 type="button"
@@ -1221,11 +1210,24 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
       {/* VIEW: CONSOLIDATED DIVINATION HUB */}
       {(activeView === 'divination' || activeView === 'tarot') && (
         <DivinationHub
-          initialTab={activeView === 'tarot' ? 'tarot' : 'oracle'}
+          initialTab="oracle"
           onReturnToChat={() => setActiveView('chat')}
-          onStartPersonaReading={handleStartPersonaConversation}
+          onStartSeanceWithCard={handleStartEncyclopediaConversation}
           onStartReading={(prompt, mode, cards, extra) => {
             setActiveView('chat');
+            if (extra?.persona) {
+              setActiveTarotPersona(extra.persona);
+              if (extra?.voice) {
+                try {
+                  const saved = localStorage.getItem('laevus_character_voices') || '{}';
+                  const mapping = JSON.parse(saved);
+                  mapping[extra.persona] = extra.voice;
+                  localStorage.setItem('laevus_character_voices', JSON.stringify(mapping));
+                } catch (err) {
+                  console.error(err);
+                }
+              }
+            }
             handleSend(prompt, mode, cards, extra);
           }}
           onShareTarotReading={handleShareTarotReading}
@@ -1246,13 +1248,11 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
         />
       )}
 
-
-
-      {/* VIEW: SOVEREIGN ADVISORS */}
-      {activeView === 'advisors' && (
-        <AdvisorsHub
+      {/* VIEW: TAROT ENCYCLOPEDIA */}
+      {activeView === 'encyclopedia' && (
+        <TarotEncyclopedia
           onReturnToChat={() => setActiveView('chat')}
-          onStartPersonaReading={handleStartPersonaConversation}
+          onStartSeanceWithCard={handleStartEncyclopediaConversation}
         />
       )}
 
@@ -1260,7 +1260,9 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
       {activeView === 'knowledge-base' && (
         <KnowledgeBase
           onReturnToChat={() => setActiveView('chat')}
-          onStartPersonaReading={handleStartPersonaConversation}
+          onStartPersonaReading={(prompt, persona) => {
+            handleStartEncyclopediaConversation(persona, prompt);
+          }}
         />
       )}
 

@@ -370,6 +370,52 @@ export const VoiceSettings: React.FC<VoiceSettingsProps> = () => {
         </div>
       </div>
 
+      {/* SECTION: Speech Synthesis Engine */}
+      <div className="space-y-3 pt-2 border-t border-zinc-900">
+        <div className="text-xs font-syne font-bold uppercase tracking-widest text-[#F8F7F4] flex items-center gap-2">
+          <span className="text-[#DC143C]">✦</span> Speech Synthesis Engine
+        </div>
+        <p className="text-xs text-zinc-400 font-google-sans">
+          Select the generation system used for character readings. Gemini AI Voice streams advanced neural audio (subject to daily limits). System Web Speech uses your browser's local, built-in synthesis (unlimited and free).
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <button
+            onClick={() => handleUpdate({ ttsEngine: 'gemini' })}
+            className={`p-3.5 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
+              settings.ttsEngine === 'gemini'
+                ? 'bg-black border-[#DC143C] text-white shadow-[0_0_15px_rgba(220,20,60,0.12)]'
+                : 'bg-black border-zinc-900 text-zinc-400 hover:border-zinc-800'
+            }`}
+          >
+            <div className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-200 flex items-center justify-between">
+              <span>Gemini AI Voice</span>
+              {settings.ttsEngine === 'gemini' && <span className="text-[#DC143C] text-[10px]">✦</span>}
+            </div>
+            <div className="text-[11px] text-zinc-500 mt-1 font-google-sans">
+              High-fidelity neural voice streaming (Uses Google's Gemini TTS)
+            </div>
+          </button>
+
+          <button
+            onClick={() => handleUpdate({ ttsEngine: 'browser' })}
+            className={`p-3.5 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
+              settings.ttsEngine === 'browser'
+                ? 'bg-black border-[#DC143C] text-white shadow-[0_0_15px_rgba(220,20,60,0.12)]'
+                : 'bg-black border-zinc-900 text-zinc-400 hover:border-zinc-800'
+            }`}
+          >
+            <div className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-200 flex items-center justify-between">
+              <span>System Web Speech</span>
+              {settings.ttsEngine === 'browser' && <span className="text-[#DC143C] text-[10px]">✦</span>}
+            </div>
+            <div className="text-[11px] text-zinc-500 mt-1 font-google-sans">
+              Local client-side browser speech synthesis (Free, offline-capable)
+            </div>
+          </button>
+        </div>
+      </div>
+
       {/* SECTION 3: Export Speech Mode */}
       <div className="space-y-3 pt-2 border-t border-zinc-900">
         <div className="text-xs font-syne font-bold uppercase tracking-widest text-[#F8F7F4] flex items-center gap-2">

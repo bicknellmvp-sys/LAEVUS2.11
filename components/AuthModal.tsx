@@ -7,10 +7,11 @@ import {
   onAuthStateChanged,
   sendPasswordResetEmail,
   User,
-  signInWithPopup
+  signInWithPopup,
+  getAuth
 } from 'firebase/auth';
 import { auth, db, googleProvider } from '../services/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, getDocFromServer } from 'firebase/firestore';
 import { motion } from 'framer-motion';
 
 interface AuthModalProps {
@@ -37,6 +38,28 @@ const CAPTCHA_POOL: CaptchaItem[] = [
   { icon: '📜', name: 'Mystic Scroll', id: 'scroll' },
   { icon: '🪐', name: 'Saturnian Ring', id: 'saturn' },
 ];
+
+function handleFirestoreError(error: any, operationType: 'create' | 'update' | 'delete' | 'list' | 'get' | 'write', path: string | null) {
+  const currentAuth = getAuth();
+  const errInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: currentAuth.currentUser?.uid,
+      email: currentAuth.currentUser?.email,
+      emailVerified: currentAuth.currentUser?.emailVerified,
+      isAnonymous: currentAuth.currentUser?.isAnonymous,
+      tenantId: currentAuth.currentUser?.tenantId,
+      providerInfo: currentAuth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onUserChanged, initialRegisterMode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -151,17 +174,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onUserCha
         // Save initial login/register information
         const user = userCredential.user;
         const userDocRef = doc(db, 'users', user.uid);
-        await setDoc(userDocRef, {
-          email: user.email,
-          uid: user.uid,
-          createdAt: new Date().toISOString(),
-          lastLoginAt: new Date().toISOString(),
-          loginHistory: [{
-            timestamp: new Date().toISOString(),
-            userAgent: navigator.userAgent,
-            action: 'register'
-          }]
-        }, { merge: true });
+        const path = `users/${user.uid}`;
+        try {
+          await setDoc(userDocRef, {
+            email: user.email,
+            uid: user.uid,
+            createdAt: new Date().toISOString(),
+            lastLoginAt: new Date().toISOString(),
+            loginHistory: [{
+              timestamp: new Date().toISOString(),
+              userAgent: navigator.userAgent,
+              action: 'register'
+            }]
+          }, { merge: true });
+        } catch (err) {
+          handleFirestoreError(err, 'write', path);
+        }
 
         setEmail('');
         setPassword('');
@@ -176,26 +204,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onUserCha
         // Save login history
         const user = userCredential.user;
         const userDocRef = doc(db, 'users', user.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        let existingHistory = [];
-        if (userDocSnap.exists()) {
-          existingHistory = userDocSnap.data().loginHistory || [];
-        }
-        const newHistory = [
-          {
-            timestamp: new Date().toISOString(),
-            userAgent: navigator.userAgent,
-            action: 'login_email'
-          },
-          ...existingHistory
-        ].slice(0, 50);
+        const path = `users/${user.uid}`;
+        try {
+          const userDocSnap = await getDoc(userDocRef);
+          let existingHistory = [];
+          if (userDocSnap.exists()) {
+            existingHistory = userDocSnap.data().loginHistory || [];
+          }
+          const newHistory = [
+            {
+              timestamp: new Date().toISOString(),
+              userAgent: navigator.userAgent,
+              action: 'login_email'
+            },
+            ...existingHistory
+          ].slice(0, 50);
 
-        await setDoc(userDocRef, {
-          email: user.email,
-          uid: user.uid,
-          lastLoginAt: new Date().toISOString(),
-          loginHistory: newHistory
-        }, { merge: true });
+          await setDoc(userDocRef, {
+            email: user.email,
+            uid: user.uid,
+            lastLoginAt: new Date().toISOString(),
+            loginHistory: newHistory
+          }, { merge: true });
+        } catch (err) {
+          handleFirestoreError(err, 'write', path);
+        }
 
         setTimeout(() => {
           onClose();
@@ -242,40 +275,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onUserCha
       
       // Save/update user info in Firestore
       const userDocRef = doc(db, 'users', user.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      
-      if (userDocSnap.exists()) {
-        // Existing user - update last login
-        const existingData = userDocSnap.data();
-        const existingHistory = existingData.loginHistory || [];
-        const newHistory = [
-          {
-            timestamp: new Date().toISOString(),
-            userAgent: navigator.userAgent,
-            action: 'login_google'
-          },
-          ...existingHistory
-        ].slice(0, 50);
+      const path = `users/${user.uid}`;
+      try {
+        const userDocSnap = await getDoc(userDocRef);
         
-        await setDoc(userDocRef, {
-          email: user.email,
-          uid: user.uid,
-          lastLoginAt: new Date().toISOString(),
-          loginHistory: newHistory
-        }, { merge: true });
-      } else {
-        // New user - create initial record
-        await setDoc(userDocRef, {
-          email: user.email,
-          uid: user.uid,
-          createdAt: new Date().toISOString(),
-          lastLoginAt: new Date().toISOString(),
-          loginHistory: [{
-            timestamp: new Date().toISOString(),
-            userAgent: navigator.userAgent,
-            action: 'register_google'
-          }]
-        }, { merge: true });
+        if (userDocSnap.exists()) {
+          // Existing user - update last login
+          const existingData = userDocSnap.data();
+          const existingHistory = existingData.loginHistory || [];
+          const newHistory = [
+            {
+              timestamp: new Date().toISOString(),
+              userAgent: navigator.userAgent,
+              action: 'login_google'
+            },
+            ...existingHistory
+          ].slice(0, 50);
+          
+          await setDoc(userDocRef, {
+            email: user.email,
+            uid: user.uid,
+            lastLoginAt: new Date().toISOString(),
+            loginHistory: newHistory
+          }, { merge: true });
+        } else {
+          // New user - create initial record
+          await setDoc(userDocRef, {
+            email: user.email,
+            uid: user.uid,
+            createdAt: new Date().toISOString(),
+            lastLoginAt: new Date().toISOString(),
+            loginHistory: [{
+              timestamp: new Date().toISOString(),
+              userAgent: navigator.userAgent,
+              action: 'register_google'
+            }]
+          }, { merge: true });
+        }
+      } catch (err) {
+        handleFirestoreError(err, 'write', path);
       }
       
       setSuccess('Vessel authenticated via Google. Welcome.');
@@ -299,6 +337,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onUserCha
   };
 
   if (!isOpen) return null;
+
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if(error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration.");
+        }
+      }
+    };
+    testConnection();
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">

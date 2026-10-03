@@ -1,24 +1,66 @@
 {
   "entities": {
-    "user": {
+    "User": {
       "title": "User",
-      "description": "User profile data",
+      "description": "User profile and history data.",
       "type": "object",
       "properties": {
-        "uid": { "type": "string" },
         "email": { "type": "string", "format": "email" },
-        "messages": { "type": "array" },
-        "transcripts": { "type": "array" },
-        "sentimentScores": { "type": "array" },
-        "lastLoginAt": { "type": "string", "format": "date-time" }
+        "uid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastLoginAt": { "type": "string", "format": "date-time" },
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "role": { "type": "string", "enum": ["user", "model"] },
+              "text": { "type": "string" },
+              "timestamp": { "type": "string", "format": "date-time" },
+              "mode": { "type": "string" }
+            }
+          }
+        },
+        "transcripts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "category": { "type": "string", "enum": ["tarot", "madam"] },
+              "title": { "type": "string" },
+              "date": { "type": "string" },
+              "content": { "type": "string" },
+              "querentPrompt": { "type": "string" },
+              "drawnCards": { "type": "array" },
+              "madamBlavatskyReply": { "type": "string" }
+            }
+          }
+        },
+        "sentimentScores": {
+          "type": "array",
+          "items": { "type": "number" }
+        },
+        "loginHistory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "timestamp": { "type": "string", "format": "date-time" },
+              "userAgent": { "type": "string" },
+              "action": { "type": "string" }
+            }
+          }
+        }
       },
-      "required": ["uid"]
+      "required": ["email", "uid"]
     }
   },
   "firestore": {
     "/users/{userId}": {
-      "schema": { "$ref": "user" },
-      "description": "User document containing data"
+      "schema": "User",
+      "description": "User profiles and their associated history."
     }
   }
 }
