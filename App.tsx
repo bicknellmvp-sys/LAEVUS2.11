@@ -6,6 +6,23 @@ import { UploadSpread } from './components/UploadSpread';
 import { AuthModal } from './components/AuthModal';
 import { User } from 'firebase/auth';
 
+const VALID_VIEWS = [
+  'divination',
+  'cast-and-crew',
+  'profiles',
+  'round-table',
+  'knowledge-base',
+  'bookshelf',
+  'encyclopedia',
+  'account',
+  'voice-settings',
+  'upload-spread',
+  'tarot',
+  'transcripts',
+  'inner-work',
+  'chat'
+];
+
 const App: React.FC = () => {
   const [isPremium, setIsPremium] = useState(true);
   const [freeQuestionsCount, setFreeQuestionsCount] = useState(999);
@@ -23,13 +40,37 @@ const App: React.FC = () => {
   const [hasServerKey, setHasServerKey] = useState(false);
   const [showKeyConfig, setShowKeyConfig] = useState(false);
   
-  // Controls which view is active from the menu ('chat' is default)
-  const [activeView, setActiveView] = useState<string>('chat');
+  // Controls which view is active from the menu with session persistence
+  const [activeView, setActiveView] = useState<string>(() => {
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const viewParam = searchParams.get('view');
+      if (viewParam && VALID_VIEWS.includes(viewParam)) {
+        return viewParam;
+      }
+      const saved = localStorage.getItem('laevus_active_view');
+      if (saved && VALID_VIEWS.includes(saved)) {
+        return saved;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return 'chat';
+  });
   const [isEmbedMode, setIsEmbedMode] = useState<boolean>(false);
 
   // Reference to call clear history in LaevusChat
   const clearHistoryFnRef = useRef<() => void>(() => {});
   const rootScrollRef = useRef<HTMLDivElement>(null);
+
+  // Persist navigation view across sessions
+  useEffect(() => {
+    try {
+      localStorage.setItem('laevus_active_view', activeView);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [activeView]);
 
   useEffect(() => {
     if (rootScrollRef.current) {
@@ -76,13 +117,11 @@ const App: React.FC = () => {
       setIsEmbedMode(true);
     }
 
-    const validViews = ['divination', 'account', 'voice-settings', 'upload-spread', 'tarot', 'transcripts', 'inner-work', 'chat'];
-
-    if (viewParam && validViews.includes(viewParam)) {
+    if (viewParam && VALID_VIEWS.includes(viewParam)) {
       setActiveView(viewParam);
     } else {
       const path = window.location.pathname.replace(/^\//, '');
-      if (validViews.includes(path)) {
+      if (VALID_VIEWS.includes(path)) {
         setActiveView(path);
       }
     }
@@ -148,7 +187,7 @@ const App: React.FC = () => {
         {/* Main Workspace Wrapper */}
         <main className={`flex-1 flex flex-col justify-start items-center w-full ${activeView === 'chat' ? 'min-h-0 overflow-hidden' : 'min-h-screen overflow-y-auto pb-16'}`}>
           
-          {/* 1. Hero Section holding the integrated THELEFT.ONE menu controls OR Minimal Embed Bar */}
+          {/* 1. Hero Section holding the integrated menu controls OR Minimal Embed Bar */}
           <div className="w-full flex-shrink-0">
             {isEmbedMode ? (
               <div className="w-full max-w-5xl mx-auto px-3 py-2 flex items-center justify-between border-b border-zinc-900/60 bg-black/40 text-xs font-mono">
@@ -156,7 +195,7 @@ const App: React.FC = () => {
                   <span className="font-syne font-extrabold text-[#F8F7F4] tracking-tight">LAEVUS</span>
                   <span className="text-zinc-600">|</span>
                   <span className="text-[10px] text-[#DC143C] uppercase font-bold tracking-wider">
-                    {activeView === 'divination' ? 'Divination' : activeView === 'account' ? 'Account Hub' : activeView === 'tarot' ? '3-Card Oracle' : activeView}
+                    {activeView === 'divination' ? 'Divination' : activeView === 'cast-and-crew' || activeView === 'profiles' ? 'Cast and Crew' : activeView === 'round-table' ? 'Sovereign Round Table' : activeView === 'knowledge-base' ? 'Knowledge Base' : activeView === 'bookshelf' ? 'Bookshelf' : activeView === 'encyclopedia' ? 'Tarot Encyclopedia' : activeView === 'account' ? 'Account Hub' : activeView === 'tarot' ? '3-Card Oracle' : activeView}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -189,7 +228,7 @@ const App: React.FC = () => {
           </div>
 
           {/* 2. DYNAMIC WORKSPACE LAYER */}
-          <div className={`w-full flex-1 flex flex-col px-2 sm:px-4 ${activeView === 'chat' ? 'min-h-0 overflow-hidden' : 'h-auto overflow-y-auto'}`}>
+          <div className={`w-full flex-1 flex flex-col px-1 ${activeView === 'chat' ? 'min-h-0 overflow-hidden' : 'h-auto overflow-y-auto'}`}>
             
             {/* DEDICATED VIEW: VOICE SETTINGS */}
             {activeView === 'voice-settings' && (

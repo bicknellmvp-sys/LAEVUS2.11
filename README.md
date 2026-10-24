@@ -55,15 +55,15 @@ Follow these instructions to set up the repository locally.
    ```
 
 3. **Configure Environment Variables**
-   Create a `.env` file in the root directory and append your Firebase configuration credentials:
-   ```env
-   VITE_FIREBASE_API_KEY=your_api_key
-   VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
-   VITE_FIREBASE_PROJECT_ID=your_project_id
-   VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
-   VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-   VITE_FIREBASE_APP_ID=your_app_id
+   Copy the example environment file to `.env`:
+   ```bash
+   cp .env.example .env
    ```
+   Add your Gemini API Key in `.env`:
+   ```env
+   GEMINI_API_KEY=your_gemini_api_key_here
+   ```
+   > 🔒 **Security Notice**: `.env` and all secret files are strictly ignored by `.gitignore`. Your API keys are **never** committed or exposed on GitHub. All model calls are routed through server-side proxy endpoints (`/api/*`).
 
 4. **Start Development Server**
    ```bash
@@ -74,7 +74,29 @@ Follow these instructions to set up the repository locally.
 5. **Build for Production**
    ```bash
    npm run build
+   npm start
    ```
+
+---
+
+## 🌐 Deploying to Render (Render.com)
+
+This application is ready for zero-config deployment on Render:
+
+1. **Push to GitHub**: Commit and push your code to your GitHub repository. (Your `.env` file with secret keys will be automatically hidden and protected by `.gitignore`).
+2. **Create Web Service on Render**:
+   - Go to [dashboard.render.com](https://dashboard.render.com).
+   - Click **New +** -> **Web Service** (or use the Blueprint from `render.yaml`).
+   - Connect your GitHub repository.
+3. **Configure Environment Variables on Render**:
+   - In your Render Service Dashboard, go to **Environment**.
+   - Add the environment variable:
+     - **Key**: `GEMINI_API_KEY`
+     - **Value**: `Your Google Gemini API Key`
+   - Render automatically injects this secret into `process.env.GEMINI_API_KEY` at runtime.
+4. **Deploy**:
+   - Render runs `npm install && npm run build` and starts with `npm start`.
+   - Your API is fully functional on Render while remaining completely secret and hidden on GitHub!
 
 ---
 

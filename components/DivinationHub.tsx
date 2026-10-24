@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TAROT_DATABASE } from '../data/tarotCards';
 import { RUNE_DATABASE, RuneData } from '../data/runes';
 import { UploadSpread } from './UploadSpread';
@@ -34,6 +34,42 @@ export const DivinationHub: React.FC<DivinationHubProps> = ({
     if (initialTab === 'runes') return 'cast_your_lot';
     return 'oracle';
   });
+
+  // 3-Sentence Auto-Summary feature state
+  const [autoSummaryEnabled, setAutoSummaryEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('laevus_auto_summary_enabled') !== 'false';
+  });
+  const [currentReadingSummary, setCurrentReadingSummary] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem('laevus_current_reading_summary');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const handleSummaryUpdate = (e: any) => {
+      if (e?.detail !== undefined) {
+        setCurrentReadingSummary(e.detail);
+      } else {
+        try {
+          const saved = localStorage.getItem('laevus_current_reading_summary');
+          setCurrentReadingSummary(saved ? JSON.parse(saved) : null);
+        } catch (err) {}
+      }
+    };
+    window.addEventListener('laevus_reading_summary_updated', handleSummaryUpdate);
+    return () => {
+      window.removeEventListener('laevus_reading_summary_updated', handleSummaryUpdate);
+    };
+  }, []);
+
+  const handleToggleAutoSummary = (checked: boolean) => {
+    setAutoSummaryEnabled(checked);
+    localStorage.setItem('laevus_auto_summary_enabled', checked ? 'true' : 'false');
+    window.dispatchEvent(new Event('laevus_auto_summary_toggled'));
+  };
 
   // Rune state
   const [drawnRunes, setDrawnRunes] = useState<RuneData[]>([]);
@@ -123,6 +159,73 @@ export const DivinationHub: React.FC<DivinationHubProps> = ({
         </div>
       </div>
 
+      {/* FEATURE: AUTOMATIC 3-SENTENCE READING SUMMARY */}
+      <div className="bg-gradient-to-r from-zinc-950 via-black to-zinc-950 border border-[#DC143C]/40 rounded-2xl p-4 sm:p-5 mb-6 shadow-xl flex flex-col gap-3 relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-900 pb-3">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#DC143C] animate-pulse" />
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#F8F7F4]">
+              ✦ Automatic 3-Sentence Reading Summary
+            </span>
+            <span className="px-2 py-0.5 rounded-full bg-[#DC143C]/20 border border-[#DC143C]/40 text-[#DC143C] text-[8px] font-mono uppercase font-bold">
+              {autoSummaryEnabled ? 'Active' : 'Disabled'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer select-none text-[10px] font-mono text-zinc-400">
+              <span className={autoSummaryEnabled ? 'text-[#DC143C] font-bold' : 'text-zinc-600'}>
+                {autoSummaryEnabled ? 'Enabled' : 'Paused'}
+              </span>
+              <input
+                type="checkbox"
+                checked={autoSummaryEnabled}
+                onChange={(e) => handleToggleAutoSummary(e.target.checked)}
+                className="accent-[#DC143C] w-4 h-4 rounded cursor-pointer"
+              />
+            </label>
+
+            {currentReadingSummary && onReturnToChat && (
+              <button
+                onClick={onReturnToChat}
+                className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-[#DC143C] hover:text-black border border-zinc-800 text-zinc-300 text-[10px] font-mono uppercase font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md"
+              >
+                <span>View at Top of Chat</span>
+                <span>↗</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        <p className="text-xs text-zinc-400 font-google-sans leading-relaxed">
+          When active, every divination reading (3-Card Oracle, Private Pull, or Norse Runes) automatically synthesizes an exact 3-sentence essence (Foundation, Catalyst, and Trajectory) displayed at the top of your chat history.
+        </p>
+
+        {/* Current Summary Preview if exists */}
+        {currentReadingSummary && (
+          <div className="mt-1 p-3 rounded-xl bg-black/80 border border-zinc-900 text-left">
+            <div className="flex items-center justify-between text-[9px] font-mono text-zinc-500 uppercase tracking-wider mb-1.5">
+              <span>Current Reading Essence ({currentReadingSummary.type})</span>
+              <span>{currentReadingSummary.timestamp}</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-[11px] text-zinc-300 font-google-sans">
+              <div className="p-2 rounded bg-zinc-950/80 border border-zinc-900">
+                <span className="text-[8px] font-mono uppercase text-[#DC143C] block font-bold mb-0.5">1. Foundation</span>
+                <span className="line-clamp-2">{currentReadingSummary.sentences[0]}</span>
+              </div>
+              <div className="p-2 rounded bg-zinc-950/80 border border-zinc-900">
+                <span className="text-[8px] font-mono uppercase text-amber-500 block font-bold mb-0.5">2. Catalyst</span>
+                <span className="line-clamp-2">{currentReadingSummary.sentences[1]}</span>
+              </div>
+              <div className="p-2 rounded bg-zinc-950/80 border border-zinc-900">
+                <span className="text-[8px] font-mono uppercase text-emerald-400 block font-bold mb-0.5">3. Trajectory</span>
+                <span className="line-clamp-2">{currentReadingSummary.sentences[2]}</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Tabs Switcher */}
       <div className="flex flex-wrap items-center gap-2 bg-black p-1.5 rounded-xl border border-zinc-900 mb-6 w-fit">
         <button
@@ -193,13 +296,16 @@ export const DivinationHub: React.FC<DivinationHubProps> = ({
           </div>
 
           {drawnCards.length === 3 && flippedCount === 3 && (
-            <div className="flex justify-center pt-2">
+            <div className="flex flex-col items-center gap-2 pt-2">
               <button
                 onClick={handleConsultOracle}
                 className="px-6 py-3 rounded-xl bg-[#DC143C] hover:bg-[#B81132] text-white font-bold text-xs uppercase tracking-widest transition-all cursor-pointer shadow-[0_0_20px_rgba(220,20,60,0.5)]"
               >
                 Consult Laevus Oracle with this Spread
               </button>
+              <p className="text-[10px] text-zinc-600 font-mono italic">
+                The oracle speaks only when the vessels are aligned.
+              </p>
             </div>
           )}
         </div>

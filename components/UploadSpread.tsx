@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { metaphysicalConsultation } from '../services/gemini';
+import { metaphysicalConsultation, generateReadingSummary } from '../services/gemini';
 import { voiceEngine, getSavedVoiceSettings, VoiceSettings } from '../services/voiceSynthesis';
 import { PastReadingsSidebar } from './PastReadingsSidebar';
 import { 
@@ -307,6 +307,30 @@ export const UploadSpread: React.FC<UploadSpreadProps> = ({ onCompleteReading, o
       });
 
       setActiveArchivedReading(savedEntry);
+
+      // Auto-generate 3-sentence summary for the physical divination spread
+      if (localStorage.getItem('laevus_auto_summary_enabled') !== 'false') {
+        generateReadingSummary(reply, {
+          type: 'Physical Realm Spread',
+          question: queryPrompt,
+          items: drawnCards.map(c => `${c.position}: ${c.name}`)
+        }).then(res => {
+          const summaryObj = {
+            id: crypto.randomUUID(),
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            title: 'Physical Realm Spread Synthesis',
+            type: 'Physical Realm Spread',
+            question: queryPrompt,
+            cardsOrRunes: drawnCards.map(c => `${c.position}: ${c.name}`),
+            sentences: res.sentences,
+            fullSummary: res.summary
+          };
+          localStorage.setItem('laevus_current_reading_summary', JSON.stringify(summaryObj));
+          window.dispatchEvent(new CustomEvent('laevus_reading_summary_updated', { detail: summaryObj }));
+        }).catch(err => {
+          console.warn("Spread auto-summary notice:", err);
+        });
+      }
 
       // Trigger voice synthesis if audio enabled
       if (currentVoiceSettings.enabled) {

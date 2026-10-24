@@ -4,22 +4,26 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LAEVUS</title>
-    <meta name="description" content="A sovereign metaphysical portal and spiritual cybernetic guide exploring tarot divination, oracle consultation, and inner patterns." />
-    <meta property="og:title" content="LAEVUS" />
-    <meta property="og:description" content="A sovereign metaphysical portal and spiritual cybernetic guide exploring tarot divination, oracle consultation, and inner patterns." />
+    <title>LAEVUS 2000</title>
+    <meta name="description" content="LAEVUS 2000 — An esoteric dark-mode divination and sovereign philosophy platform featuring Tarot readings, Sovereign Profiles, and the Sovereign Round Table." />
+    <meta property="og:title" content="LAEVUS 2000" />
+    <meta property="og:description" content="LAEVUS 2000 — An esoteric dark-mode divination and sovereign philosophy platform featuring Tarot readings, Sovereign Profiles, and the Sovereign Round Table." />
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Ruthie&family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
-    <!-- PDF.js for rendering PDF previews (downloads on demand, does not block first paint) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" async defer></script>
+    <!-- PDF.js for rendering PDF previews -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
       window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
     <style>
-      /* Hero-critical CSS (inline, small, intentionally ordered first so the banner
-         paints immediately without a stylesheet round trip). Copied verbatim from
-         the previous style block so no design is lost. */
+      :root {
+        --bg: #050209; /* deepest purple, almost black */
+        --ink: #F8F7F4;
+        --accent: #DC143C;
+      }
+      
       @keyframes acidTrip {
         0% {
           background-position: 0% 50%, 50% 100%, 0% 0%;
@@ -103,10 +107,10 @@
         color: rgb(233, 213, 255);
       }
     </style>
-    <link rel="modulepreload" href="/index.tsx">
+    <link rel="stylesheet" href="/index.css">
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/index.tsx" async defer></script>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>

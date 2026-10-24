@@ -27,6 +27,7 @@ export interface VoiceSettings {
   clonedSpeed: number;
   autoSendVoice: boolean;
   preferredExportFormat: 'doc' | 'pdf' | 'mp3';
+  ttsEngine?: 'browser' | 'gemini';
 }
 
 export const PERSONA_PROFILES: Record<PersonaId, PersonaProfile> = {
@@ -99,7 +100,8 @@ export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
   clonedPitch: 1.0,
   clonedSpeed: 1.0,
   autoSendVoice: false,
-  preferredExportFormat: 'mp3'
+  preferredExportFormat: 'mp3',
+  ttsEngine: 'browser'
 };
 
 export const getSavedVoiceSettings = (): VoiceSettings => {
@@ -122,6 +124,7 @@ export const getSavedVoiceSettings = (): VoiceSettings => {
       clonedSpeed: typeof parsed.clonedSpeed === 'number' ? parsed.clonedSpeed : DEFAULT_VOICE_SETTINGS.clonedSpeed,
       autoSendVoice: typeof parsed.autoSendVoice === 'boolean' ? parsed.autoSendVoice : DEFAULT_VOICE_SETTINGS.autoSendVoice,
       preferredExportFormat: ['doc', 'pdf', 'mp3'].includes(parsed.preferredExportFormat) ? parsed.preferredExportFormat : DEFAULT_VOICE_SETTINGS.preferredExportFormat,
+      ttsEngine: parsed.ttsEngine === 'gemini' ? 'gemini' : 'browser'
     };
   } catch {
     return DEFAULT_VOICE_SETTINGS;
@@ -160,6 +163,10 @@ class VoiceEngine {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  public onSpeakingChange(listener: (speaking: boolean) => void): () => void {
+    return this.subscribe(listener);
   }
 
   private notify() {

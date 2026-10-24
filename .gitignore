@@ -12,10 +12,17 @@ public/build/
 # Logs
 *.log
 
-# Environment variables
+# Environment variables & secrets (Never commit to GitHub)
 .env
 .env.local
 .env.*
+.env.production
+.env.development
+!.env.example
+*.pem
+*.key
+credentials.json
+secrets/
 
 # IDE files
 .vscode/

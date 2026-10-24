@@ -138,6 +138,19 @@ export const VoiceSettings: React.FC<VoiceSettingsProps> = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Persona Alternation Toggle */}
+            <label className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-950 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.autoSendVoice} // Reuse this or add a new field
+                onChange={(e) => handleUpdate({ autoSendVoice: e.target.checked })}
+                className="accent-[#DC143C]"
+              />
+              <span className="text-[11px] font-mono text-zinc-300">
+                Alternate Laevus/Madam
+              </span>
+            </label>
+
             {/* Dictation Input Toggle */}
             <button
               onClick={() => handleUpdate({ sttEnabled: !settings.sttEnabled })}

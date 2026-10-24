@@ -7,30 +7,38 @@ import { GoogleGenAI, Modality, GenerateContentResponse, ThinkingLevel } from '@
 const __dirname = path.resolve();
 
 const viteEnv = loadEnv(process.env.NODE_ENV || 'development', process.cwd(), '');
-const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY || viteEnv.GEMINI_API_KEY || viteEnv.API_KEY || viteEnv.GOOGLE_API_KEY || '';
-
-if (!apiKey) {
-  console.warn("WARNING: GEMINI_API_KEY is not configured in environment variables or .env!");
+export function getEffectiveApiKey(reqKey?: string): string {
+  return (
+    reqKey?.trim() ||
+    process.env.GEMINI_API_KEY ||
+    process.env.API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    process.env.VITE_GEMINI_API_KEY ||
+    viteEnv.GEMINI_API_KEY ||
+    viteEnv.API_KEY ||
+    viteEnv.GOOGLE_API_KEY ||
+    ''
+  );
 }
 
 const GEMINI_MODEL = 'gemini-3.8-flash';
 const GEMINI_TTS_MODEL = 'gemini-3.8-flash-lite-tts';
 
-const ai = new GoogleGenAI({
-  apiKey: apiKey,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
+function getAiClient(customKey?: string): GoogleGenAI {
+  const key = getEffectiveApiKey(customKey);
+  return new GoogleGenAI({
+    apiKey: key,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      }
     }
-  }
-});
-
-function getAiInstance() {
-  return ai;
+  });
 }
 
-async function callGeminiWithFallback(fn: (client: GoogleGenAI) => Promise<any>): Promise<any> {
-  return await fn(ai);
+async function callGeminiWithFallback(fn: (client: GoogleGenAI) => Promise<any>, customKey?: string): Promise<any> {
+  const client = getAiClient(customKey);
+  return await fn(client);
 }
 
 async function generateMultiProviderText(req: any, params: {
@@ -219,7 +227,7 @@ async function startServer() {
 
   app.get('/api/gemini/status', (req, res) => {
     const userKey = req.headers['x-goog-api-key'] as string;
-    res.json({ hasKey: Boolean(apiKey || (userKey && userKey.trim())) });
+    res.json({ hasKey: Boolean(getEffectiveApiKey(userKey)) });
   });
 
   // API Routes for Gemini (Server-Side)
@@ -314,8 +322,8 @@ RESPONSE FORMAT: Return ONLY raw HTML code. Do not wrap in markdown code blocks.
         personaDirective = "\n\nACTIVE PERSONA: Marie Antoinette.\nSpeak in clear English with a slight French accent, high elegance, sophisticated aesthetic taste, and graceful poise. Offer enlightened perspective on maintaining absolute dignity, styling, presentation, and poise under intense public scrutiny.";
       } else if (activePersona === 'Hazrat Inayat Khan') {
         personaDirective = "\n\nACTIVE PERSONA: Hazrat Inayat Khan.\nSpeak with gentle, poetic serenity and deep meditative grace. Embody the Sufi Harmony Sage, offering wisdom on heart purification, sound vibration, cosmic breath, and inner frequency alignment with the supportive rhythms of the universe.";
-      } else if (activePersona === 'Left Hand Path Magus') {
-        personaDirective = "\n\nACTIVE PERSONA: Left Hand Path Magus.\nSpeak as a high adept of self-deification, individual autonomy, and unyielding willpower. Emphasize deep shadow integration, shattering societal/inherited compliance loops, and transforming adversarial bottlenecks into raw developmental catalysts.";
+      } else if (activePersona === 'Left Hand Path Magus' || activePersona === 'Anton LaVey' || activePersona === 'Anton Szandor LaVey' || activePersona === 'Anton LaVey (Left Hand Path Magus)') {
+        personaDirective = "\n\nACTIVE PERSONA: Anton LaVey (Left Hand Path Magus).\nSpeak as Anton LaVey, founder of the Church of Satan, author of The Satanic Bible, and the living Left Hand Path Magus archetype. Speak with biting wit, deep carnal pragmatism, dramatic theatrical flair, and fierce individual autonomy. Emphasize self-deification, indulgence over compulsive abstinence, recognizing psychic vampires, mastering lesser magic (charisma, timing, aesthetic impact), and shattering societal compliance loops.";
       } else if (activePersona === 'Blackhat SEO Alchemist') {
         personaDirective = "\n\nACTIVE PERSONA: Blackhat SEO Alchemist.\nSpeak as an advanced wizard of search algorithms and crawl networks. Offer advice on semantic content structures, crawling loops, database indexing mechanics, and search engine optimization formulas to achieve absolute digital visibility.";
       } else if (activePersona === 'Machiavelli' || activePersona === 'Niccolo Machiavelli' || activePersona === 'Niccolò Machiavelli') {
@@ -345,12 +353,95 @@ Make their debate incredibly witty, humorous, and comically critical of each oth
       const isAdvisor = [
         'Laevus', 'Madame Blavatsky', 'Marie Laveau', 'Genghis Khan', 'Khan',
         'Marie Antoinette', 'Marie', 'Hazrat Inayat Khan', 'Left Hand Path Magus',
+        'Anton LaVey', 'Anton Szandor LaVey', 'Anton LaVey (Left Hand Path Magus)',
         'Blackhat SEO Alchemist', 'Machiavelli', 'Niccolo Machiavelli', 'Niccolò Machiavelli',
         'Casanova', 'Giacomo Casanova', 'Diotima', 'Diotima of Mantinea', 'Casanova & Diotima', 'Lovers Debate',
-        'Green Witch', 'GreenWitch'
+        'Green Witch', 'GreenWitch', 'Odin'
       ].includes(activePersona);
 
-      if (options.mode === 'tarot-persona' && options.personaCardName && !isAdvisor) {
+      if (options.mode === 'round-table') {
+        const queryTopic = options.roundTableQuestion || message;
+        systemInstruction = `You are the underlying intelligence for LAEVUS 2000, an esoteric, dark-mode divination and sovereign philosophy platform.
+Your core knowledge base contains the detailed profiles, archetypes, and philosophical frameworks of the Sovereigns (Madame Blavatsky, Genghis Khan, Marie Antoinette, Anton LaVey, Niccolò Machiavelli, Odin, Hazrat Inayat Khan, Marie Laveau).
+You are operating strictly under [TAB: Sovereign Round Table].
+
+CORE FUNCTION:
+Convene a multi-perspective panel discussion featuring all Sovereign profiles answering the single question posed by the user.
+
+EXECUTION PROTOCOL:
+1. Moderator Intro: Briefly frame the user's inquiry through the unified Laevus lens.
+2. Individual Perspectives: Each Sovereign profile delivers an answer in their distinct authentic voice, drawing directly from their unique philosophy:
+   - 🕯️ Madame Helena Blavatsky: Theosophical cosmology, root-races, esoteric mechanics, universal laws, penetrating Maya.
+   - ⚔️ Genghis Khan: Relentless discipline, conquest, decisive momentum, tactical efficiency, sovereign command.
+   - 👑 Marie Antoinette: High Rococo aesthetic elegance, courtly composure, absolute dignity under scrutiny, regal presentation.
+   - ⚡ Anton LaVey (Left Hand Path Magus): Carnal sovereignty, self-deification, ruthless individual autonomy, lesser magic, shattering societal/inherited compliance loops, shadow integration.
+   - 🗡️ Niccolò Machiavelli: Cold realpolitik, calculating power, perception management, tactical alliances, structural leverage.
+   - 👁️ Odin (The All-Father): Willing sacrifice for supreme insight, runic destiny, enduring agony for wisdom, sovereign foresight.
+   - 🌿 Hazrat Inayat Khan: Sufi mysticism, heart purification, cosmic sound vibration, breath, harmonic resonance.
+   - 🔮 Marie Laveau: Voodoo rootwork, ancestral empowerment, talismanic keys, spiritual protection, clearing road blocks.
+3. Debate / Friction (Brief): Sovereigns may challenge or contrast another Sovereign's view if relevant to their core doctrine.
+4. The Synthesis: Provide a concluding breakdown summarizing how these distinct sovereign perspectives converge or contrast to offer an actionable, complete answer.
+
+ROUND TABLE OUTPUT FORMAT (FOLLOW THIS STRICTLY):
+### 🔮 LAEVUS ROUND TABLE CONVENED
+**Topic / Question:** "${queryTopic}"
+
+[Brief 1-2 sentence Moderator Intro framing the council through the unified Laevus lens]
+
+---
+
+#### 🕯️ Madame Helena Blavatsky
+*"[Direct quote or statement in voice]"*
+* **The Stance:** [Brief explanation of their response based on their core philosophy.]
+
+---
+
+#### ⚔️ Genghis Khan
+*"[Direct quote or statement in voice]"*
+* **The Stance:** [Brief explanation of their response based on their core philosophy.]
+
+---
+
+#### 👑 Marie Antoinette
+*"[Direct quote or statement in voice]"*
+* **The Stance:** [Brief explanation of their response based on their core philosophy.]
+
+---
+
+#### ⚡ Anton LaVey (Left Hand Path Magus)
+*"[Direct quote or statement in voice]"*
+* **The Stance:** [Brief explanation of their response based on their core philosophy.]
+
+---
+
+#### 🗡️ Niccolò Machiavelli
+*"[Direct quote or statement in voice]"*
+* **The Stance:** [Brief explanation of their response based on their core philosophy.]
+
+---
+
+#### 👁️ Odin (The All-Father)
+*"[Direct quote or statement in voice]"*
+* **The Stance:** [Brief explanation of their response based on their core philosophy.]
+
+---
+
+#### 🌿 Hazrat Inayat Khan
+*"[Direct quote or statement in voice]"*
+* **The Stance:** [Brief explanation of their response based on their core philosophy.]
+
+---
+
+#### 🔮 Marie Laveau
+*"[Direct quote or statement in voice]"*
+* **The Stance:** [Brief explanation of their response based on their core philosophy.]
+
+---
+
+### 🏛️ SOVEREIGN SYNTHESIS
+[A concise summary highlighting the fundamental friction and harmony between the perspectives, giving the user an actionable, multi-faceted takeaway.]
+`;
+      } else if (options.mode === 'tarot-persona' && options.personaCardName && !isAdvisor) {
         systemInstruction = `You are the core intelligence of an interactive, encyclopedic Tarot platform operating in Tarot Archetype Embodiment. Embody the card "${options.personaCardName}". Speak in first-person ("I", "my") with esoteric, profound wisdom matching your archetype.`;
       } else if (options.mode === 'tarot-physical' && options.tarotCards) {
         const cardsList = options.tarotCards.map((c: any) => `[${c.position}]: ${c.name} (${c.description})`).join(', ');
@@ -362,20 +453,84 @@ Make their debate incredibly witty, humorous, and comically critical of each oth
         systemInstruction = `You are the Oracle of LAEVUS—a grounded, intuitive guide who combines psychological depth with practical common sense.`;
       }
 
-      if (personaDirective) {
+      if (personaDirective && options.mode !== 'round-table') {
         systemInstruction += "\n\n" + personaDirective;
       }
+
+      const requestedMaxTokens = options.mode === 'round-table' ? 3000 : 1024;
 
       const text = await generateMultiProviderText(req, {
         systemInstruction,
         contents,
-        temperature: 0.85,
-        maxTokens: 1024
+        temperature: options.mode === 'round-table' ? 0.75 : 0.85,
+        maxTokens: requestedMaxTokens
       });
 
       res.json({ text: text || "The digital spirits are silent..." });
     } catch (error: any) {
       console.error("Consultation Error:", error);
+      res.status(500).json({ error: error?.message || 'Server error' });
+    }
+  });
+
+  app.post('/api/gemini/summarize-reading', async (req, res) => {
+    try {
+      const { readingText, context = {} } = req.body;
+      if (!readingText) {
+        return res.status(400).json({ error: 'readingText is required' });
+      }
+
+      const prompt = `Analyze the following divination reading and generate an exact, concise 3-sentence summary of the reading.
+Divination Reading:
+${readingText.slice(0, 4000)}
+
+${context.question ? `Seeker Question: "${context.question}"` : ''}
+${context.items?.length ? `Drawn Keys/Cards/Runes: ${context.items.join(', ')}` : ''}
+${context.type ? `Divination Form: ${context.type}` : ''}
+
+Strict Formatting Instructions:
+1. Output EXACTLY THREE (3) sentences. No more and no less.
+2. Sentence 1 (Foundation): Summarize the root condition, past baggage, or foundational energetic state.
+3. Sentence 2 (Catalyst): Synthesize the present turning point, dynamic tension, or current challenge.
+4. Sentence 3 (Trajectory): Provide the decisive future trajectory, resolution, or sovereign guidance.
+5. Provide ONLY the 3 sentences in plain text without markdown headers, bullet numbers, or intro/outro pleasantries.`;
+
+      const text = await generateMultiProviderText(req, {
+        systemInstruction: "You are the esoteric distillation master of the LAEVUS Sanctuary. Your purpose is to synthesize divination readings into three profound, concise, actionable sentences.",
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        temperature: 0.6,
+        maxTokens: 350
+      });
+
+      // Split into sentences
+      const cleaned = (text || '').trim();
+      const sentenceRegex = /[^.!?]+[.!?]+(?:\s+|$)/g;
+      const rawMatches = cleaned.match(sentenceRegex);
+      const matched: string[] = rawMatches ? rawMatches.map(s => s.trim()).filter(Boolean) : [];
+
+      let sentences: string[] = [];
+      if (matched.length === 3) {
+        sentences = matched;
+      } else if (matched.length > 3) {
+        sentences = [matched[0], matched[1], matched.slice(2).join(' ')];
+      } else if (matched.length === 2) {
+        sentences = [matched[0], matched[1], "Align your sovereign intent to integrate these lessons moving forward."];
+      } else if (matched.length === 1) {
+        sentences = [matched[0], "The present moment holds the threshold of transformation.", "Step forward with unwavering focus and sovereign clarity."];
+      } else {
+        sentences = [
+          "The current energetic foundation reflects a period of critical re-evaluation.",
+          "Present catalysts urge decisive awareness over old conditioning.",
+          "Clear alignment will guide your trajectory toward sovereign breakthrough."
+        ];
+      }
+
+      res.json({
+        sentences,
+        summary: sentences.join(' ')
+      });
+    } catch (error: any) {
+      console.error("Summarization Error:", error);
       res.status(500).json({ error: error?.message || 'Server error' });
     }
   });

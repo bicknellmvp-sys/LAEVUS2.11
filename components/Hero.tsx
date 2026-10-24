@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getSavedVoiceSettings } from '../services/voiceSynthesis';
+import { getSavedVoiceSettings, saveVoiceSettings, PersonaId } from '../services/voiceSynthesis';
 
 interface HeroProps {
   activeView: string;
@@ -19,7 +19,7 @@ export const Hero: React.FC<HeroProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [currentPersona, setCurrentPersona] = useState<string>(() => {
-    return getSavedVoiceSettings().persona || 'The Pythia of Fountain';
+    return getSavedVoiceSettings().persona || 'Madame Blavatsky';
   });
 
   useEffect(() => {
@@ -59,6 +59,14 @@ export const Hero: React.FC<HeroProps> = ({
     setIsOpen(false);
   };
 
+  const handleSelectVoice = (persona: PersonaId) => {
+    const settings = getSavedVoiceSettings();
+    saveVoiceSettings({ ...settings, persona, enabled: true });
+    setCurrentPersona(persona);
+    setActiveView('chat');
+    setIsOpen(false);
+  };
+
   const [isDripping, setIsDripping] = useState(false);
 
   const handleHomeClick = (e: React.MouseEvent) => {
@@ -74,14 +82,16 @@ export const Hero: React.FC<HeroProps> = ({
   const isDivinationView = activeView === 'divination' || activeView === 'tarot' || activeView === 'upload-spread';
 
   const getDropdownLabel = () => {
-    if (isDivinationView) return 'DIVINATION';
-    if (activeView === 'advisors') return 'SOVEREIGN ADVISORS';
+    if (activeView === 'round-table') return 'ROUND TABLE';
+    if (activeView === 'cast-and-crew' || activeView === 'profiles') return 'CAST AND CREW';
     if (activeView === 'knowledge-base') return 'KNOWLEDGE BASE';
+    if (activeView === 'bookshelf') return 'BOOKSHELF';
     if (activeView === 'encyclopedia') return 'TAROT ENCYCLOPEDIA';
+    if (isDivinationView) return 'DIVINATION';
     if (activeView === 'voice-settings') return 'VOICE SETTINGS';
     if (activeView === 'account' || activeView === 'inner-work' || activeView === 'transcripts') return 'ACCOUNT & INSIGHTS';
-    if (activeView === 'chat' && activeChatPersona) {
-      return activeChatPersona.toUpperCase();
+    if (activeView === 'chat') {
+      return 'THE ORACLE';
     }
     return currentPersona.toUpperCase();
   };
@@ -91,25 +101,31 @@ export const Hero: React.FC<HeroProps> = ({
       <div className="flex flex-col items-center justify-center text-center relative">
         <div className="relative inline-flex flex-col items-end">
           {/* Universal Persistent Home Link */}
-          <h1 className="font-syne text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-[-0.06em] uppercase leading-none selection:bg-purple-900/50 selection:text-purple-200 relative select-text">
-            <a
-              href="/"
-              onClick={handleHomeClick} 
-              className={`transition-all uppercase font-syne text-center tracking-[-0.06em] leading-none font-extrabold focus:outline-none cursor-pointer bg-transparent border-none p-0 outline-none inline-block ${
-                isDripping 
-                  ? 'animate-drip-black drop-shadow-[0_0_20px_rgba(0,0,0,0.9)]' 
-                  : 'text-[#DC143C] drop-shadow-[0_0_15px_rgba(220,20,60,0.5)] hover:drop-shadow-[0_0_22px_rgba(220,20,60,0.8)]'
-              }`}
-              title="Return to The Pythia of Fountain Home"
-            >
-              Laevus
-            </a>
-          </h1>
+          <div className="flex flex-col items-center">
+            <h1 className="font-syne text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-[-0.06em] uppercase leading-none selection:bg-purple-900/50 selection:text-purple-200 relative select-text">
+              <a
+                href="/"
+                onClick={handleHomeClick} 
+                className={`transition-all uppercase font-syne text-center tracking-[-0.06em] leading-none font-extrabold focus:outline-none cursor-pointer bg-transparent border-none p-0 outline-none inline-flex items-baseline gap-2 ${
+                  isDripping 
+                    ? 'animate-drip-black drop-shadow-[0_0_20px_rgba(0,0,0,0.9)]' 
+                    : 'text-[#DC143C] drop-shadow-[0_0_15px_rgba(220,20,60,0.5)] hover:drop-shadow-[0_0_22px_rgba(220,20,60,0.8)]'
+                }`}
+                title="Return to Laevus 2000 Sanctuary"
+              >
+                <span>Laevus</span>
+                <span className="text-xl sm:text-2xl md:text-3xl font-mono text-zinc-500 tracking-widest font-normal">2000</span>
+              </a>
+            </h1>
+            <span className="text-[9px] font-mono uppercase tracking-[0.25em] text-zinc-600 font-bold mt-1">
+              Esoteric Divination & Sovereign Philosophy
+            </span>
+          </div>
           
-          {/* Navigation dropdown box placed directly under the VUS of LAEVUS */}
+          {/* Navigation dropdown box placed directly under the header */}
           <div 
             ref={dropdownRef}
-            className="relative z-50 mt-1.5 self-end"
+            className="relative z-50 mt-2 self-end"
           >
             <button
               onClick={() => setIsOpen(!isOpen)}
@@ -129,126 +145,161 @@ export const Hero: React.FC<HeroProps> = ({
             {/* Dropdown Menu Categories - aligned right below the trigger */}
             {isOpen && (
               <div 
-                className="absolute right-0 top-full mt-2 w-60 bg-black/95 backdrop-blur-md border border-zinc-800 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.9),0_0_30px_rgba(220,20,60,0.15)] p-2 z-50 normal-case tracking-normal text-zinc-300 animate-fadeIn border-t-2 border-t-[#DC143C]"
+                className="absolute right-0 top-full mt-2 w-72 bg-black/95 backdrop-blur-md border border-zinc-800 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.9),0_0_30px_rgba(220,20,60,0.18)] p-2.5 z-50 normal-case tracking-normal text-zinc-300 animate-fadeIn border-t-2 border-t-[#DC143C]"
               >
-              <div className="space-y-1 font-mono">
-                {/* Sign up / Log in with custom pulsing glow style block */}
-                <style dangerouslySetInnerHTML={{__html: `
-                  @keyframes crimson-pulse {
-                    0%, 100% {
-                      box-shadow: 0 0 4px rgba(220, 20, 60, 0.4), inset 0 0 2px rgba(220, 20, 60, 0.2);
-                      border-color: rgba(220, 20, 60, 0.4);
-                    }
-                    50% {
-                      box-shadow: 0 0 14px rgba(220, 20, 60, 0.95), inset 0 0 4px rgba(220, 20, 60, 0.45);
-                      border-color: rgba(220, 20, 60, 0.95);
-                    }
-                  }
-                  .crimson-pulsing-glow {
-                    animation: crimson-pulse 2s infinite ease-in-out;
-                  }
-                `}} />
-                <button
-                  onClick={() => {
-                    setIsOpen(false);
-                    onOpenAuth(false);
-                  }}
-                  className="w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between transition-all duration-200 uppercase font-google-sans cursor-pointer group bg-black hover:bg-zinc-950 mb-1 border border-[#DC143C]/40 crimson-pulsing-glow"
-                >
-                  <span className="font-bold text-[11px] tracking-wider text-white group-hover:text-zinc-200 transition-colors">Sign up / Log in</span>
-                  <span className="text-[#DC143C] text-[10px] group-hover:translate-x-0.5 transition-transform">→</span>
-                </button>
+                <div className="space-y-1.5 font-mono">
+                  {/* Sign up / Log in button */}
 
-                {/* 0. LAEVUS */}
-                <button
-                  onClick={() => handleSelect('chat')}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between transition-all duration-200 uppercase font-google-sans cursor-pointer group ${
-                    activeView === 'chat'
-                      ? 'bg-zinc-900 text-[#DC143C] font-bold shadow-sm' 
-                      : 'text-zinc-300 hover:bg-zinc-900/60 hover:text-[#DC143C] active:text-[#DC143C]'
-                  }`}
-                >
-                  <span className="font-bold text-[11px] tracking-wider group-hover:text-[#DC143C] group-active:text-[#DC143C] transition-colors">{currentPersona.toUpperCase()}</span>
-                  {activeView === 'chat' && <span className="text-[#DC143C] text-[10px]">●</span>}
-                </button>
+                    <button
+                      onClick={() => handleSelect('chat')}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between transition-all duration-200 uppercase font-google-sans cursor-pointer group ${
+                        activeView === 'chat'
+                          ? 'bg-zinc-900 text-[#DC143C] font-bold shadow-sm' 
+                          : 'text-zinc-300 hover:bg-zinc-900/60 hover:text-[#DC143C] active:text-[#DC143C]'
+                      }`}
+                    >
+                      <span className="font-bold text-[11px] tracking-wider group-hover:text-[#DC143C] group-active:text-[#DC143C] transition-colors">
+                        CHAT W/ THE ORACLE
+                      </span>
+                      {activeView === 'chat' && <span className="text-[#DC143C] text-[10px]">●</span>}
+                    </button>
 
-                {/* 1. DIVINATION */}
-                <button
-                  onClick={() => handleSelect('divination')}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between transition-all duration-200 uppercase font-google-sans cursor-pointer group ${
-                    isDivinationView
-                      ? 'bg-zinc-900 text-[#DC143C] font-bold shadow-sm' 
-                      : 'text-zinc-300 hover:bg-zinc-900/60 hover:text-[#DC143C] active:text-[#DC143C]'
-                  }`}
-                >
-                  <span className="font-bold text-[11px] tracking-wider group-hover:text-[#DC143C] group-active:text-[#DC143C] transition-colors">DIVINATION</span>
-                  {isDivinationView && (
-                    <span className="text-[#DC143C] text-[10px]">●</span>
-                  )}
-                </button>
+                  {/* 2. CATEGORY & FEATURE OPTIONS */}
+                  <div className="space-y-1">
+                    {/* Divination (Renamed from Tarot and Divination) */}
+                    <button
+                      onClick={() => handleSelect('divination')}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between transition-all duration-200 uppercase font-google-sans cursor-pointer group ${
+                        isDivinationView
+                          ? 'bg-zinc-900 text-[#DC143C] font-bold shadow-sm' 
+                          : 'text-zinc-300 hover:bg-zinc-900/60 hover:text-[#DC143C] active:text-[#DC143C]'
+                      }`}
+                    >
+                      <span className="font-bold text-[11px] tracking-wider group-hover:text-[#DC143C] group-active:text-[#DC143C] transition-colors">
+                        Divination
+                      </span>
+                      {isDivinationView && (
+                        <span className="text-[#DC143C] text-[10px]">●</span>
+                      )}
+                    </button>
 
-                {/* 4. Knowledge Base */}
-                <button
-                  onClick={() => handleSelect('knowledge-base')}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between transition-all duration-200 uppercase font-google-sans cursor-pointer group ${
-                    activeView === 'knowledge-base'
-                      ? 'bg-zinc-900 text-[#DC143C] font-bold shadow-sm' 
-                      : 'text-zinc-300 hover:bg-zinc-900/60 hover:text-[#DC143C] active:text-[#DC143C]'
-                  }`}
-                >
-                  <span className="font-bold text-[11px] tracking-wider group-hover:text-[#DC143C] group-active:text-[#DC143C] transition-colors font-google-sans font-bold">Knowledge Base</span>
-                  {activeView === 'knowledge-base' && <span className="text-[#DC143C] text-[10px]">●</span>}
-                </button>
+                    {/* Cast and Crew (Renamed from Sovereign Profiles) */}
+                    <button
+                      onClick={() => handleSelect('cast-and-crew')}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between transition-all duration-200 uppercase font-google-sans cursor-pointer group ${
+                        activeView === 'cast-and-crew' || activeView === 'profiles'
+                          ? 'bg-zinc-900 text-[#DC143C] font-bold shadow-sm' 
+                          : 'text-zinc-300 hover:bg-zinc-900/60 hover:text-[#DC143C] active:text-[#DC143C]'
+                      }`}
+                    >
+                      <span className="font-bold text-[11px] tracking-wider group-hover:text-[#DC143C] group-active:text-[#DC143C] transition-colors">
+                        Cast and Crew
+                      </span>
+                      {(activeView === 'cast-and-crew' || activeView === 'profiles') && (
+                        <span className="text-[#DC143C] text-[10px]">●</span>
+                      )}
+                    </button>
 
-                {/* 2. Voice Settings */}
-                <button
-                  onClick={() => handleSelect('voice-settings')}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between transition-all duration-200 uppercase font-google-sans cursor-pointer group ${
-                    activeView === 'voice-settings' 
-                      ? 'bg-zinc-900 text-[#DC143C] font-bold shadow-sm' 
-                      : 'text-zinc-300 hover:bg-zinc-900/60 hover:text-[#DC143C] active:text-[#DC143C]'
-                  }`}
-                >
-                  <span className="font-bold text-[11px] tracking-wider group-hover:text-[#DC143C] group-active:text-[#DC143C] transition-colors">Voice Settings</span>
-                  {activeView === 'voice-settings' && <span className="text-[#DC143C] text-[10px]">●</span>}
-                </button>
+                    {/* Sovereign Round Table */}
+                    <button
+                      onClick={() => handleSelect('round-table')}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between transition-all duration-200 uppercase font-google-sans cursor-pointer group ${
+                        activeView === 'round-table'
+                          ? 'bg-zinc-900 text-[#DC143C] font-bold shadow-sm' 
+                          : 'text-zinc-300 hover:bg-zinc-900/60 hover:text-[#DC143C] active:text-[#DC143C]'
+                      }`}
+                    >
+                      <span className="font-bold text-[11px] tracking-wider group-hover:text-[#DC143C] group-active:text-[#DC143C] transition-colors">
+                        Sovereign Round Table
+                      </span>
+                      {activeView === 'round-table' && <span className="text-[#DC143C] text-[10px]">●</span>}
+                    </button>
+                    
+                    {/* Knowledge Base */}
+                    <button
+                      onClick={() => handleSelect('knowledge-base')}
+                      className={`w-full text-left px-3 py-1.5 rounded-lg text-xs flex items-center justify-between transition-all duration-200 uppercase font-google-sans cursor-pointer group ${
+                        activeView === 'knowledge-base'
+                          ? 'bg-zinc-900 text-[#DC143C] font-bold shadow-sm' 
+                          : 'text-zinc-300 hover:bg-zinc-900/60 hover:text-[#DC143C] active:text-[#DC143C]'
+                      }`}
+                    >
+                      <span className="font-bold text-[11px] tracking-wider group-hover:text-[#DC143C] transition-colors">
+                        Knowledge Base
+                      </span>
+                      {activeView === 'knowledge-base' && <span className="text-[#DC143C] text-[10px]">●</span>}
+                    </button>
 
-                {/* 5. Unified Account & Insights Hub */}
-                <button
-                  onClick={() => handleSelect('account')}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between transition-all duration-200 uppercase font-google-sans cursor-pointer group ${
-                    activeView === 'account' || activeView === 'inner-work' || activeView === 'transcripts'
-                      ? 'bg-zinc-900 text-[#DC143C] font-bold shadow-sm' 
-                      : 'text-zinc-300 hover:bg-zinc-900/60 hover:text-[#DC143C] active:text-[#DC143C]'
-                  }`}
-                >
-                  <span className="font-bold text-[11px] tracking-wider group-hover:text-[#DC143C] group-active:text-[#DC143C] transition-colors">Account & Insights</span>
-                  {(activeView === 'account' || activeView === 'inner-work' || activeView === 'transcripts') && (
-                    <span className="text-[#DC143C] text-[10px]">●</span>
-                  )}
-                </button>
+                    {/* Wrapped Buttons */}
+                    <div className="border border-zinc-800 rounded-xl p-1.5 space-y-1">
+                      <button
+                        onClick={() => {
+                          setIsOpen(false);
+                          onOpenAuth(false);
+                        }}
+                        className="w-full text-left px-3 py-1.5 rounded-lg text-xs flex items-center justify-between transition-all duration-200 uppercase font-google-sans cursor-pointer group text-zinc-400 hover:bg-zinc-900/60 hover:text-[#DC143C] active:text-[#DC143C]"
+                      >
+                        <span className="font-bold text-[10px] tracking-wider group-hover:text-[#DC143C] transition-colors">Sign up / Sign in</span>
+                        <span className="text-[#DC143C] text-[10px] group-hover:translate-x-0.5 transition-transform">→</span>
+                      </button>
 
-                {/* Divider */}
-                <div className="h-px bg-zinc-800/80 my-1.5" />
+                      {/* Account & Insights */}
+                      <button
+                        onClick={() => handleSelect('account')}
+                        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs flex items-center justify-between transition-all duration-200 uppercase font-google-sans cursor-pointer group ${
+                          activeView === 'account' || activeView === 'inner-work' || activeView === 'transcripts'
+                            ? 'bg-zinc-900 text-[#DC143C] font-bold shadow-sm' 
+                            : 'text-zinc-400 hover:bg-zinc-900/60 hover:text-[#DC143C] active:text-[#DC143C]'
+                        }`}
+                      >
+                        <span className="font-bold text-[10px] tracking-wider group-hover:text-[#DC143C] transition-colors">
+                          Account & Insights
+                        </span>
+                        {(activeView === 'account' || activeView === 'inner-work' || activeView === 'transcripts') && (
+                          <span className="text-[#DC143C] text-[10px]">●</span>
+                        )}
+                      </button>
 
-                {/* 6. External link to theleft.one with readable cursive */}
-                <a
-                  href="https://theleft.one"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full text-left px-2.5 py-1.5 hover:bg-zinc-900/60 rounded-lg flex items-center justify-between transition-all duration-200 text-zinc-300 hover:text-white group"
-                >
-                  <span className="font-ruthie text-[18px] sm:text-[21.6px] leading-none pt-0.5">
-                    the<span className="text-[#DC143C]">left</span>.one
-                  </span>
-                  <span className="text-[9px] text-zinc-500 group-hover:text-zinc-300 font-mono">↗</span>
-                </a>
+                      {/* Voice Settings */}
+                      <button
+                        onClick={() => handleSelect('voice-settings')}
+                        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs flex items-center justify-between transition-all duration-200 uppercase font-google-sans cursor-pointer group ${
+                          activeView === 'voice-settings' 
+                            ? 'bg-zinc-900 text-[#DC143C] font-bold shadow-sm' 
+                            : 'text-zinc-400 hover:bg-zinc-900/60 hover:text-[#DC143C] active:text-[#DC143C]'
+                        }`}
+                      >
+                        <span className="font-bold text-[10px] tracking-wider group-hover:text-[#DC143C] transition-colors">
+                          Voice Settings
+                        </span>
+                        {activeView === 'voice-settings' && <span className="text-[#DC143C] text-[10px]">●</span>}
+                      </button>
+                    </div>
+                  </div>
 
+                  {/* 3. KNOWLEDGE BASE DEDICATED SECTION & SUB-FOLDER REMOVED (MOVED ABOVE) */}
+
+                  {/* Divider */}
+                  <div className="h-px bg-zinc-800/80 my-1" />
+
+                  {/* External link to theleft.one */}
+                  <a
+                    href="https://theleft.one"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-zinc-900/60 rounded-lg flex items-center justify-between transition-all duration-200 text-zinc-300 hover:text-white group"
+                  >
+                    <span className="font-ruthie text-[18px] sm:text-[21.6px] leading-none pt-0.5">
+                      the<span className="text-[#DC143C]">left</span>.one
+                    </span>
+                    <span className="text-[9px] text-zinc-500 group-hover:text-zinc-300 font-mono">↗</span>
+                  </a>
+
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
       </div>
     </header>
   );

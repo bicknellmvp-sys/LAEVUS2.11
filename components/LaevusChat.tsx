@@ -1,16 +1,29 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { metaphysicalConsultation } from '../services/gemini';
+import { metaphysicalConsultation, generateReadingSummary } from '../services/gemini';
 import { voiceEngine, getSavedVoiceSettings } from '../services/voiceSynthesis';
 import { speechToTextEngine } from '../services/speechToText';
 import { db } from '../services/firebase';
 import { doc, getDoc, setDoc, getDocFromServer } from 'firebase/firestore';
 import { User, getAuth } from 'firebase/auth';
 import { DivinationHub } from './DivinationHub';
+import { CastAndCrew } from './CastAndCrew';
 import { KnowledgeBase } from './KnowledgeBase';
+import { SovereignRoundTable } from './SovereignRoundTable';
 import { TarotEncyclopedia } from './TarotEncyclopedia';
 import { AccountHub, TranscriptRecord } from './AccountHub';
 import { SocialShareModal, ShareContent } from './SocialShareModal';
 import { TAROT_DATABASE, TarotCardData as UniversalTarotCardData } from '../data/tarotCards';
+
+export interface DivinationReadingSummary {
+  id: string;
+  timestamp: string;
+  title: string;
+  type: string;
+  question?: string;
+  cardsOrRunes?: string[];
+  sentences: string[];
+  fullSummary: string;
+}
 
 interface Message {
   id: string;
@@ -248,6 +261,125 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
 
   // Voice Input (STT) state
   const [isListening, setIsListening] = useState(false);
+
+  // 3-Sentence Divination Reading Summary state
+  const [currentReadingSummary, setCurrentReadingSummary] = useState<DivinationReadingSummary | null>(() => {
+    try {
+      const saved = localStorage.getItem('laevus_current_reading_summary');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [isSummaryCollapsed, setIsSummaryCollapsed] = useState(false);
+  const [copiedSummary, setCopiedSummary] = useState(false);
+  const [autoSummaryEnabled, setAutoSummaryEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('laevus_auto_summary_enabled') !== 'false';
+  });
+
+  useEffect(() => {
+    const handleSummaryUpdate = (e: any) => {
+      if (e?.detail !== undefined) {
+        setCurrentReadingSummary(e.detail);
+      } else {
+        try {
+          const saved = localStorage.getItem('laevus_current_reading_summary');
+          setCurrentReadingSummary(saved ? JSON.parse(saved) : null);
+        } catch (err) {}
+      }
+    };
+
+    const handleAutoSummaryToggle = () => {
+      setAutoSummaryEnabled(localStorage.getItem('laevus_auto_summary_enabled') !== 'false');
+    };
+
+    window.addEventListener('laevus_reading_summary_updated', handleSummaryUpdate);
+    window.addEventListener('laevus_auto_summary_toggled', handleAutoSummaryToggle);
+
+    return () => {
+      window.removeEventListener('laevus_reading_summary_updated', handleSummaryUpdate);
+      window.removeEventListener('laevus_auto_summary_toggled', handleAutoSummaryToggle);
+    };
+  }, []);
+
+  const handleCopySummary = async () => {
+    if (!currentReadingSummary) return;
+    try {
+      const formatted = `[${currentReadingSummary.title}]\n1. ${currentReadingSummary.sentences[0] || ''}\n2. ${currentReadingSummary.sentences[1] || ''}\n3. ${currentReadingSummary.sentences[2] || ''}`;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(formatted);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = formatted;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopiedSummary(true);
+      setTimeout(() => setCopiedSummary(false), 2000);
+    } catch (e) {
+      console.error("Failed to copy summary:", e);
+    }
+  };
+
+  const handleDismissSummary = () => {
+    setCurrentReadingSummary(null);
+    localStorage.removeItem('laevus_current_reading_summary');
+    window.dispatchEvent(new CustomEvent('laevus_reading_summary_updated', { detail: null }));
+  };
+
+  const triggerAutoSummary = async (
+    readingText: string,
+    meta: {
+      type: string;
+      question?: string;
+      items?: string[];
+      title?: string;
+    }
+  ) => {
+    setIsSummarizing(true);
+    try {
+      const res = await generateReadingSummary(readingText, {
+        type: meta.type,
+        question: meta.question,
+        items: meta.items
+      });
+
+      const summaryObj: DivinationReadingSummary = {
+        id: crypto.randomUUID(),
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        title: meta.title || `${meta.type} Synthesis`,
+        type: meta.type,
+        question: meta.question,
+        cardsOrRunes: meta.items,
+        sentences: res.sentences,
+        fullSummary: res.summary
+      };
+
+      setCurrentReadingSummary(summaryObj);
+      localStorage.setItem('laevus_current_reading_summary', JSON.stringify(summaryObj));
+      window.dispatchEvent(new CustomEvent('laevus_reading_summary_updated', { detail: summaryObj }));
+    } catch (err) {
+      console.error("Auto-summary generation error:", err);
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
+  const handleRegenerateSummary = () => {
+    if (!currentReadingSummary) return;
+    const lastModelMsg = [...messages].reverse().find(m => m.role === 'model' && m.id !== 'welcome');
+    if (lastModelMsg?.text) {
+      triggerAutoSummary(lastModelMsg.text, {
+        type: currentReadingSummary.type,
+        question: currentReadingSummary.question,
+        items: currentReadingSummary.cardsOrRunes,
+        title: currentReadingSummary.title
+      });
+    }
+  };
 
   const activePersonaName = getSavedVoiceSettings().persona;
 
@@ -645,7 +777,7 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
     textToSend: string, 
     forceMode?: 'laevus' | 'tarot' | 'tarot-persona' | 'tarot-physical', 
     customCards?: TarotCard[],
-    extraInfo?: { followUpQuestion?: string; primaryQuestion?: string }
+    extraInfo?: { followUpQuestion?: string; primaryQuestion?: string; runes?: any[]; persona?: string; voice?: string; question?: string; [key: string]: any }
   ) => {
     if (!textToSend.trim() && !customCards) return;
     if (isTyping) return;
@@ -739,6 +871,14 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
             madamBlavatskyReply: reply
           }
         );
+
+        if (localStorage.getItem('laevus_auto_summary_enabled') !== 'false') {
+          triggerAutoSummary(reply, {
+            type: `${normalizedCardName} Seance`,
+            question: questionText,
+            title: `${normalizedCardName} Archetype Oracle`
+          });
+        }
       } catch (err) {
         console.error(err);
         const errText = "An error occurred with the AI service. Please verify that your GEMINI_API_KEY environment variable is configured correctly.";
@@ -892,6 +1032,26 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
             madamBlavatskyReply: reply
           }
         );
+      }
+
+      // Automatic 3-Sentence Summary generation for divination readings
+      const isDivinationReading = currentMode === 'tarot' || currentMode === 'tarot-physical' || Boolean(extraInfo?.runes) || Boolean(customCards && customCards.length > 0) || currentMode === 'tarot-persona';
+
+      if (isDivinationReading && (localStorage.getItem('laevus_auto_summary_enabled') !== 'false')) {
+        const divType = currentMode === 'tarot-physical'
+          ? 'Physical Realm Spread'
+          : (extraInfo?.runes ? 'Norse Rune Divination' : currentMode === 'tarot-persona' ? `${activeTarotPersona || 'Tarot Archetype'} Consultation` : '3-Card Oracle Spread');
+
+        const itemsList = customCards 
+          ? customCards.map(c => `${c.position}: ${c.name}`) 
+          : (extraInfo?.runes ? extraInfo.runes.map((r: any, idx: number) => `Rune ${idx + 1}: ${r.name}`) : undefined);
+
+        triggerAutoSummary(reply, {
+          type: divType,
+          question: effectiveQuestion !== 'General alignment' ? effectiveQuestion : (tarotQuestion || trimmedText),
+          items: itemsList,
+          title: extraInfo?.runes ? `Rune Cast (${extraInfo.persona || 'Odin'})` : `${divType}`
+        });
       }
 
     } catch (err) {
@@ -1108,6 +1268,170 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
             className="flex-1 py-4 px-6 overflow-y-auto space-y-4 text-[#F8F7F4] flex flex-col relative mb-3 bg-black border border-zinc-900 rounded-xl shadow-xl"
           >
             <div className="flex-1 space-y-4 w-full max-w-4xl mx-auto text-xs leading-relaxed">
+              {/* CURRENT DIVINATION READING 3-SENTENCE SUMMARY (TOP OF CHAT HISTORY) */}
+              {(currentReadingSummary || isSummarizing) && (
+                <div className="w-full mb-6 p-4 sm:p-5 rounded-2xl bg-zinc-950 border border-[#DC143C]/40 shadow-[0_0_25px_rgba(220,20,60,0.18)] animate-fadeIn text-left relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-36 h-36 bg-[#DC143C]/5 rounded-full blur-2xl pointer-events-none" />
+
+                  {/* Top Bar: Title, Badge, Controls */}
+                  <div className="flex items-center justify-between gap-3 border-b border-zinc-900/80 pb-3 mb-3.5 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#DC143C] animate-pulse" />
+                      <span className="text-[10px] font-mono uppercase tracking-widest text-[#DC143C] font-bold">
+                        ✦ Current Reading Summary
+                      </span>
+                      {currentReadingSummary?.type && (
+                        <span className="px-2 py-0.5 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 text-[9px] font-mono uppercase">
+                          {currentReadingSummary.type}
+                        </span>
+                      )}
+                      {currentReadingSummary?.timestamp && (
+                        <span className="text-[9px] font-mono text-zinc-600 hidden sm:inline">
+                          {currentReadingSummary.timestamp}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {/* Copy summary button */}
+                      {currentReadingSummary && (
+                        <button
+                          onClick={handleCopySummary}
+                          className="px-2.5 py-1 rounded-lg bg-black hover:bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-zinc-300 hover:text-white transition-colors cursor-pointer flex items-center gap-1"
+                          title="Copy 3-sentence summary"
+                        >
+                          <span>{copiedSummary ? '✓ Copied' : 'Copy'}</span>
+                        </button>
+                      )}
+
+                      {/* Regenerate button */}
+                      {currentReadingSummary && (
+                        <button
+                          onClick={handleRegenerateSummary}
+                          disabled={isSummarizing}
+                          className="p-1 rounded-lg bg-black hover:bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-[#DC143C] transition-colors cursor-pointer disabled:opacity-50"
+                          title="Regenerate 3-sentence summary"
+                        >
+                          <svg className={`w-3.5 h-3.5 ${isSummarizing ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                            <path d="M3 3v5h5" />
+                            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                            <path d="M16 21h5v-5" />
+                          </svg>
+                        </button>
+                      )}
+
+                      {/* Collapse/Expand button */}
+                      <button
+                        onClick={() => setIsSummaryCollapsed(!isSummaryCollapsed)}
+                        className="px-2 py-1 rounded-lg bg-black hover:bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                        title={isSummaryCollapsed ? "Expand summary" : "Collapse summary"}
+                      >
+                        {isSummaryCollapsed ? 'Expand ↓' : 'Collapse ↑'}
+                      </button>
+
+                      {/* Dismiss button */}
+                      <button
+                        onClick={handleDismissSummary}
+                        className="p-1 text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer text-xs"
+                        title="Dismiss summary banner"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Summary Content */}
+                  {isSummarizing ? (
+                    <div className="py-4 flex items-center justify-center gap-2.5 text-zinc-400 text-xs font-mono">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#DC143C] animate-ping" />
+                      <span>Synthesizing concise 3-sentence reading essence...</span>
+                    </div>
+                  ) : !isSummaryCollapsed && currentReadingSummary ? (
+                    <div className="space-y-3">
+                      {/* Context note if question asked */}
+                      {currentReadingSummary.question && (
+                        <div className="text-[10px] font-mono text-zinc-500 italic mb-2">
+                          Inquiry: "{currentReadingSummary.question}"
+                        </div>
+                      )}
+
+                      {/* 3 Sentences grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                        {/* Sentence 1: Foundation */}
+                        <div className="p-3 rounded-xl bg-black/70 border border-zinc-900 hover:border-zinc-800 transition-colors flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <span className="px-1.5 py-0.5 rounded bg-zinc-900 text-[#DC143C] font-mono text-[8px] font-bold">
+                                01
+                              </span>
+                              <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 font-bold">
+                                Foundation
+                              </span>
+                            </div>
+                            <p className="text-xs text-zinc-200 leading-relaxed font-google-sans">
+                              {currentReadingSummary.sentences[0] || "Foundational conditions anchor the current energetic landscape."}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Sentence 2: Catalyst */}
+                        <div className="p-3 rounded-xl bg-black/70 border border-zinc-900 hover:border-zinc-800 transition-colors flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <span className="px-1.5 py-0.5 rounded bg-zinc-900 text-amber-500 font-mono text-[8px] font-bold">
+                                02
+                              </span>
+                              <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 font-bold">
+                                Catalyst
+                              </span>
+                            </div>
+                            <p className="text-xs text-zinc-200 leading-relaxed font-google-sans">
+                              {currentReadingSummary.sentences[1] || "The present tension demands heightened conscious presence."}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Sentence 3: Trajectory */}
+                        <div className="p-3 rounded-xl bg-black/70 border border-zinc-900 hover:border-zinc-800 transition-colors flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <span className="px-1.5 py-0.5 rounded bg-zinc-900 text-emerald-400 font-mono text-[8px] font-bold">
+                                03
+                              </span>
+                              <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 font-bold">
+                                Trajectory
+                              </span>
+                            </div>
+                            <p className="text-xs text-zinc-200 leading-relaxed font-google-sans">
+                              {currentReadingSummary.sentences[2] || "Sovereign intention will resolve the path into definitive victory."}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Items strip */}
+                      {currentReadingSummary.cardsOrRunes && currentReadingSummary.cardsOrRunes.length > 0 && (
+                        <div className="pt-2 border-t border-zinc-900/60 flex items-center gap-1.5 flex-wrap text-[9px] font-mono text-zinc-500">
+                          <span className="text-zinc-600 uppercase">Drawn:</span>
+                          {currentReadingSummary.cardsOrRunes.map((item, idx) => (
+                            <span key={idx} className="px-1.5 py-0.5 rounded bg-zinc-900/90 border border-zinc-850 text-zinc-400">
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : currentReadingSummary ? (
+                    <div className="flex items-center justify-between text-xs text-zinc-400">
+                      <span className="line-clamp-1 italic text-zinc-300 font-google-sans">
+                        "{currentReadingSummary.fullSummary}"
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
               {messages.map((m) => {
                  const isUser = m.role === 'user';
                  const userDisplay = currentUser 
@@ -1248,20 +1572,35 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
         />
       )}
 
-      {/* VIEW: TAROT ENCYCLOPEDIA */}
-      {activeView === 'encyclopedia' && (
-        <TarotEncyclopedia
-          onReturnToChat={() => setActiveView('chat')}
-          onStartSeanceWithCard={handleStartEncyclopediaConversation}
-        />
-      )}
-
-      {/* VIEW: KNOWLEDGE BASE */}
-      {activeView === 'knowledge-base' && (
-        <KnowledgeBase
+      {/* VIEW: CAST AND CREW (SOVEREIGN PROFILES) */}
+      {(activeView === 'cast-and-crew' || activeView === 'profiles') && (
+        <CastAndCrew
           onReturnToChat={() => setActiveView('chat')}
           onStartPersonaReading={(prompt, persona) => {
             handleStartEncyclopediaConversation(persona, prompt);
+          }}
+          onConveneRoundTable={() => setActiveView('round-table')}
+        />
+      )}
+
+      {/* VIEW: KNOWLEDGE BASE (HOUSING BOOKSHELF & TAROT ENCYCLOPEDIA) */}
+      {(activeView === 'knowledge-base' || activeView === 'bookshelf' || activeView === 'encyclopedia') && (
+        <KnowledgeBase
+          initialTab={activeView === 'encyclopedia' ? 'tarot_encyclopedia' : 'bookshelf'}
+          onReturnToChat={() => setActiveView('chat')}
+          onStartPersonaReading={(prompt, persona) => {
+            handleStartEncyclopediaConversation(persona, prompt);
+          }}
+          onConveneRoundTable={() => setActiveView('round-table')}
+        />
+      )}
+
+      {/* VIEW: SOVEREIGN ROUND TABLE */}
+      {activeView === 'round-table' && (
+        <SovereignRoundTable
+          onReturnToChat={() => setActiveView('chat')}
+          onDirectQueryPersona={(persona, prompt) => {
+            handleStartEncyclopediaConversation(persona, prompt || `Greetings, Sovereign ${persona}. I summon your counsel directly.`);
           }}
         />
       )}

@@ -1,0 +1,16 @@
+# Render.com Blueprint Configuration
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: laevus-sanctuary
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: GEMINI_API_KEY
+        sync: false # Must be set securely in the Render Dashboard (never exposed on GitHub)
