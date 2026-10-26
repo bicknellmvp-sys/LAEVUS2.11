@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { metaphysicalConsultation, generateReadingSummary } from '../services/gemini';
-import { voiceEngine, getSavedVoiceSettings } from '../services/voiceSynthesis';
+import { voiceEngine, getSavedVoiceSettings, getNextPersona } from '../services/voiceSynthesis';
 import { speechToTextEngine } from '../services/speechToText';
 import { db } from '../services/firebase';
 import { doc, getDoc, setDoc, getDocFromServer } from 'firebase/firestore';
@@ -927,6 +927,14 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
       let reply = "";
       const effectiveQuestion = extraInfo?.primaryQuestion || tarotQuestion || "General alignment";
       const effectiveFollowUp = extraInfo?.followUpQuestion;
+
+      // Persona Alternation Logic
+      if (currentVoiceSettings.autoSendVoice) {
+        const nextPersona = getNextPersona(currentVoiceSettings.persona);
+        currentVoiceSettings.persona = nextPersona;
+        saveVoiceSettings(currentVoiceSettings);
+      }
+
 
       if (currentMode === 'tarot' && customCards) {
         const promptText = effectiveFollowUp

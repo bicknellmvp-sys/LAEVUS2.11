@@ -320,22 +320,42 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
 
       {/* SUB-PAGE 3: ELDER FUTHARK FAQ */}
       {activeTab === 'futhark_faq' && (
-        <div className="animate-fadeIn p-6 bg-zinc-950 rounded-xl border border-zinc-900 space-y-4">
-          <h3 className="text-lg font-syne font-bold text-[#F8F7F4]">Elder Futhark FAQ</h3>
-          <div className="text-zinc-300 space-y-3 text-sm font-google-sans">
-            <p><strong>What is the Elder Futhark?</strong> The Elder Futhark is the oldest form of the runic alphabets, used by the Germanic tribes from the 2nd to the 8th century.</p>
-            <p><strong>How many runes are there?</strong> It consists of 24 runes, typically divided into three aettir (families) of eight.</p>
+        <div className="animate-fadeIn p-6 bg-zinc-950 rounded-xl border border-zinc-900 space-y-6">
+          <h3 className="text-xl font-syne font-bold text-[#F8F7F4] uppercase tracking-wide">Elder Futhark FAQ</h3>
+          <div className="text-zinc-300 space-y-6 text-sm font-google-sans leading-relaxed">
+            <section>
+              <h4 className="text-amber-400 font-semibold mb-2">What is the Elder Futhark?</h4>
+              <p>The Elder Futhark is the oldest form of the runic alphabets, used by the Germanic tribes of northwestern Europe, including Scandinavia, from the 2nd to the 8th century, during the Migration Period and the early Viking Age.</p>
+            </section>
+            <section>
+              <h4 className="text-amber-400 font-semibold mb-2">How are the 24 runes organized?</h4>
+              <p>The 24 runes are traditionally divided into three groups of eight, called "aettir" (plural of aett), meaning "families" or "eights". Each aett is associated with a specific Norse god: Freyr's aett, Heimdall's aett, and Tyr's aett.</p>
+            </section>
+            <section>
+              <h4 className="text-amber-400 font-semibold mb-2">Are they used for divination?</h4>
+              <p>While historically runes served primarily as an alphabet for inscriptions, in modern esoteric practice, they are widely used for divination, meditation, and focused magical intent, acting as keys to subconscious and cosmic archetypes.</p>
+            </section>
           </div>
         </div>
       )}
 
       {/* SUB-PAGE 4: NORSE HISTORY */}
       {activeTab === 'norse_history' && (
-        <div className="animate-fadeIn p-6 bg-zinc-950 rounded-xl border border-zinc-900 space-y-4">
-          <h3 className="text-lg font-syne font-bold text-[#F8F7F4]">History of Norse Mythology</h3>
-          <div className="text-zinc-300 space-y-3 text-sm font-google-sans">
-            <p>Norse mythology encompasses the tales of the gods, heroes, and creatures as told by the Norse people before and during the Viking Age.</p>
-            <p>It centers on the World Tree, Yggdrasil, and the Nine Realms.</p>
+        <div className="animate-fadeIn p-6 bg-zinc-950 rounded-xl border border-zinc-900 space-y-6">
+          <h3 className="text-xl font-syne font-bold text-[#F8F7F4] uppercase tracking-wide">History of Norse Mythology</h3>
+          <div className="text-zinc-300 space-y-6 text-sm font-google-sans leading-relaxed">
+            <section>
+              <h4 className="text-emerald-400 font-semibold mb-2">Origins and Context</h4>
+              <p>Norse mythology is the body of myths of the North Germanic peoples, stemming from Proto-Norse folklore and passing down through the oral traditions of the Viking Age. It was not a codified religion with a central text, but a lived experience of the natural world.</p>
+            </section>
+            <section>
+              <h4 className="text-emerald-400 font-semibold mb-2">The World Tree: Yggdrasil</h4>
+              <p>At the center of the Norse cosmos is Yggdrasil, an immense ash tree that connects the Nine Realms. It is the axis mundi, maintaining the balance of existence, from the roots in the underworld to the heights of Asgard.</p>
+            </section>
+            <section>
+              <h4 className="text-emerald-400 font-semibold mb-2">The Viking Age Perspective</h4>
+              <p>For the Norse, these myths provided a framework for courage, honor, and destiny. The focus was on living valiantly to earn a place in Valhalla, a hall ruled by the god Odin, in preparation for the final struggle of Ragnarok.</p>
+            </section>
           </div>
         </div>
       )}

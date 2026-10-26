@@ -131,6 +131,13 @@ export const getSavedVoiceSettings = (): VoiceSettings => {
   }
 };
 
+
+export const getNextPersona = (currentPersona: PersonaId): PersonaId => {
+  if (currentPersona === 'Laevus') return 'Madame Blavatsky';
+  if (currentPersona === 'Madame Blavatsky') return 'Laevus';
+  return currentPersona;
+};
+
 export const saveVoiceSettings = (settings: VoiceSettings): void => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
