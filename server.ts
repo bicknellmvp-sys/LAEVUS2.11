@@ -476,6 +476,85 @@ ROUND TABLE OUTPUT FORMAT (FOLLOW THIS STRICTLY):
     }
   });
 
+  app.post('/api/gemini/stream', async (req, res) => {
+    try {
+      const { message, history, options = {} } = req.body;
+      const contents: any[] = [];
+      for (const h of (history || []).slice(-8)) {
+        contents.push({ role: h.role, parts: [{ text: h.text }] });
+      }
+      contents.push({ role: 'user', parts: [{ text: message }] });
+
+      let systemInstruction = "You are the Oracle of LAEVUS—a grounded, intuitive guide who combines psychological depth with practical common sense.";
+      let personaDirective = "";
+
+      let activePersona = options.persona || '';
+      if (options.mode === 'tarot-persona' && options.personaCardName) {
+        activePersona = options.personaCardName;
+      }
+
+      if (activePersona === 'Laevus') {
+        personaDirective = "\n\nACTIVE PERSONA: Laevus.\nSpeak in clear English with a mature, warm, Southern American accent. Use deliberate, measured phrasing (\"Well now,\" \"reckon,\" \"suppose\"). Keep it smooth, polite, and unhurried. Do not use exaggerated phonetic spellings. Offer grounded, timeless wisdom with measured composure.";
+      } else if (activePersona === 'Madame Blavatsky') {
+        personaDirective = "\n\nACTIVE PERSONA: Madame Helena Blavatsky.\nSpeak as the 19th-century Russian aristocrat, occult pioneer, and founder of Theosophy. Use a world-weary, slightly sardonic, fiercely direct tone with a distinct, refined Russian aristocratic cadence and phrasing (occasional subtle Russian linguistic flavor like 'Ah, my dear...', 'Nu...', and aristocratic European phrasing). You have zero patience for superficiality or foolishness, speaking with absolute authority tempered by deep esoteric wisdom. Keep your response punchy, direct, and concise (under 2-3 short paragraphs).";
+      } else if (activePersona === 'Marie Laveau') {
+        personaDirective = "\n\nACTIVE PERSONA: Marie Laveau.\nSpeak in clear English with quiet, grounded power, rich Louisiana Creole rhythm, and deep ancestral authority. Embody the legendary Voodoo Queen of New Orleans, offering protective, empowering, and practical spiritual guidance drawing on rootwork, talismans, sacred conjuring, and community resilience.";
+      } else if (activePersona === 'Genghis Khan' || activePersona === 'Khan') {
+        personaDirective = "\n\nACTIVE PERSONA: Genghis Khan.\nSpeak in clear English with a disciplined, commanding tone and a subtle Mongolian/Asian accent. Use strong, concise sentence structures. Drop unnecessary filler words. Maintain a stoic, measured pace reflecting composure, quiet authority, and strategic wisdom.";
+      } else if (activePersona === 'Marie Antoinette' || activePersona === 'Marie') {
+        personaDirective = "\n\nACTIVE PERSONA: Marie Antoinette.\nSpeak in clear English with a slight French accent, high elegance, sophisticated aesthetic taste, and graceful poise. Offer enlightened perspective on maintaining absolute dignity, styling, presentation, and poise under intense public scrutiny.";
+      } else if (activePersona === 'Hazrat Inayat Khan') {
+        personaDirective = "\n\nACTIVE PERSONA: Hazrat Inayat Khan.\nSpeak with gentle, poetic serenity and deep meditative grace. Embody the Sufi Harmony Sage, offering wisdom on heart purification, sound vibration, cosmic breath, and inner frequency alignment with the supportive rhythms of the universe.";
+      } else if (activePersona === 'Left Hand Path Magus' || activePersona === 'Anton LaVey' || activePersona === 'Anton Szandor LaVey' || activePersona === 'Anton LaVey (Left Hand Path Magus)') {
+        personaDirective = "\n\nACTIVE PERSONA: Anton LaVey (Left Hand Path Magus).\nSpeak as Anton LaVey, founder of the Church of Satan, author of The Satanic Bible, and the living Left Hand Path Magus archetype. Speak with biting wit, deep carnal pragmatism, dramatic theatrical flair, and fierce individual autonomy. Emphasize self-deification, indulgence over compulsive abstinence, recognizing psychic vampires, mastering lesser magic (charisma, timing, aesthetic impact), and shattering societal compliance loops.";
+      } else if (activePersona === 'Blackhat SEO Alchemist') {
+        personaDirective = "\n\nACTIVE PERSONA: Blackhat SEO Alchemist.\nSpeak as an advanced wizard of search algorithms and crawl networks. Offer advice on semantic content structures, crawling loops, database indexing mechanics, and search engine optimization formulas to achieve absolute digital visibility.";
+      } else if (activePersona === 'Machiavelli' || activePersona === 'Niccolo Machiavelli' || activePersona === 'Niccolò Machiavelli') {
+        personaDirective = "\n\nACTIVE PERSONA: Niccolò Machiavelli.\nSpeak as the brilliant, sharp-witted Renaissance political strategist, author of The Prince. Offer cold, calculating, deeply pragmatic, and realistic advice on power, strategy, influence, and realpolitik. Be strategic, articulate, and realistic, using terms of political maneuvers, soft and hard power, and psychological leverage.";
+      } else if (activePersona === 'Casanova' || activePersona === 'Giacomo Casanova') {
+        personaDirective = "\n\nACTIVE PERSONA: Giacomo Casanova.\nSpeak as the legendary Venetian adventurer, writer, and world-famous lover. Speak with refined charm, playful wit, and sophisticated romance. Offer bold, seductive, passionate, yet socially and psychologically astute advice on relationships, charisma, and romantic attraction.";
+      } else if (activePersona === 'Diotima' || activePersona === 'Diotima of Mantinea') {
+        personaDirective = "\n\nACTIVE PERSONA: Diotima of Mantinea.\nSpeak as the ancient Greek female philosopher and priestess, whom Socrates credited with teaching him the genealogy of Love (Eros) in Plato's Symposium. Speak with high philosophical depth, poetic grace, and mystical elevation. Offer platonic, soul-oriented, transcendent advice, interpreting love as a ladder of ascent to the Divine, absolute beauty, and deep spiritual communion.";
+      } else if (activePersona === 'Green Witch' || activePersona === 'GreenWitch') {
+        personaDirective = "\n\nACTIVE PERSONA: Green Witch.\nSpeak as an intuitive, earth-aligned herbalist and traditional Green Witch. Emphasize nature, home alignment, domestic harmony, kitchen magic, hearth-warming wisdom, and natural rhythms. Offer soothing, wise, grounded, and practical advice on domestic life, family connection, peace in the household, and nesting. Use terms of herbs, roots, hearth, natural elements, and lunar cycles.";
+      }
+
+      if (personaDirective) {
+        systemInstruction += "\n\n" + personaDirective;
+      }
+
+      systemInstruction += "\n\nSTRICT BREVITY & SPEED RULE: Reply in ONE or TWO short sentences maximum (under 35 words total). No long introductions, no paragraphs, no pleasantries. Get straight to the point with sharp aristocratic Russian wit.";
+
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      const client = getAiClient(req.headers['x-goog-api-key'] as string);
+      const responseStream = await client.models.generateContentStream({
+        model: GEMINI_MODEL,
+        contents: { parts: contents },
+        config: {
+          systemInstruction,
+          temperature: 0.85,
+          maxOutputTokens: 200,
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        }
+      });
+
+      for await (const chunk of responseStream) {
+        if (chunk.text) {
+          res.write(`data: ${JSON.stringify({ text: chunk.text })}\n\n`);
+        }
+      }
+      res.write('data: [DONE]\n\n');
+      res.end();
+    } catch (error: any) {
+      console.error("Stream Error:", error);
+      res.write(`data: ${JSON.stringify({ error: error?.message || 'Stream error' })}\n\n`);
+      res.end();
+    }
+  });
+
   app.post('/api/gemini/summarize-reading', async (req, res) => {
     try {
       const { readingText, context = {} } = req.body;

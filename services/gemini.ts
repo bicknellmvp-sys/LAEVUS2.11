@@ -158,3 +158,59 @@ export async function generateReadingSummary(
   }
 }
 
+export async function metaphysicalConsultationStream(
+  message: string,
+  history: { role: 'user' | 'model'; text: string }[],
+  options: any,
+  onChunk: (text: string) => void
+): Promise<string> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/gemini/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, history, options })
+    });
+
+    if (!res.ok || !res.body) {
+      const fallback = await metaphysicalConsultation(message, history, options);
+      onChunk(fallback);
+      return fallback;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const payload = line.substring(6).trim();
+          if (payload === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(payload);
+            if (parsed.text) {
+              fullText += parsed.text;
+              onChunk(fullText);
+            }
+          } catch (e) {}
+        }
+      }
+    }
+
+    return fullText || "The digital spirits are silent...";
+  } catch (error: any) {
+    console.error("Stream Client Error:", error);
+    const fallback = await metaphysicalConsultation(message, history, options);
+    onChunk(fallback);
+    return fallback;
+  }
+}
+
+

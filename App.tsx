@@ -176,16 +176,14 @@ const App: React.FC = () => {
   return (
     <div 
       ref={rootScrollRef}
-      className={`w-screen bg-transparent text-[#F8F7F4] selection:bg-purple-900/50 selection:text-purple-200 relative flex flex-col font-mono ${
-        activeView === 'chat' ? 'h-screen overflow-hidden' : 'min-h-screen overflow-y-auto'
-      }`}
+      className="w-screen h-[100dvh] bg-black text-[#F8F7F4] selection:bg-purple-900/50 selection:text-purple-200 relative flex flex-col font-mono overflow-hidden"
     >
       
       {/* Centered Content Container */}
-      <div className={`flex-1 flex flex-col w-full relative z-10 ${activeView === 'chat' ? 'min-h-0' : 'min-h-screen'}`}>
+      <div className="flex-1 flex flex-col w-full relative z-10 min-h-0 overflow-hidden">
         
         {/* Main Workspace Wrapper */}
-        <main className={`flex-1 flex flex-col justify-start items-center w-full ${activeView === 'chat' ? 'min-h-0 overflow-hidden' : 'min-h-screen overflow-y-auto pb-16'}`}>
+        <main className="flex-1 flex flex-col justify-start items-center w-full min-h-0 overflow-hidden pb-2">
           
           {/* 1. Hero Section holding the integrated menu controls OR Minimal Embed Bar */}
           <div className="w-full flex-shrink-0">

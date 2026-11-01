@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { metaphysicalConsultation, generateReadingSummary } from '../services/gemini';
+import { metaphysicalConsultation, metaphysicalConsultationStream, generateReadingSummary } from '../services/gemini';
 import { voiceEngine, getSavedVoiceSettings, getNextPersona, saveVoiceSettings } from '../services/voiceSynthesis';
 import { speechToTextEngine } from '../services/speechToText';
 import { db } from '../services/firebase';
@@ -936,12 +936,26 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
       }
 
 
+      const msgId = crypto.randomUUID();
+      setMessages(prev => [...prev, {
+        id: msgId,
+        role: 'model',
+        text: '',
+        timestamp: new Date(),
+        mode: currentMode
+      }]);
+
+      const handleChunk = (chunkText: string) => {
+        reply = chunkText;
+        setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text: chunkText } : m));
+      };
+
       if (currentMode === 'tarot' && customCards) {
         const promptText = effectiveFollowUp
           ? `Tailor a tarot reading for inquiry: "${effectiveQuestion}" and follow-up question: "${effectiveFollowUp}"`
           : `Tailor a tarot reading for my question: "${effectiveQuestion}"`;
 
-        reply = await metaphysicalConsultation(
+        reply = await metaphysicalConsultationStream(
           promptText,
           formattedHistory,
           {
@@ -951,14 +965,15 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
             followUpQuestion: effectiveFollowUp,
             readingCount: nextCount,
             persona: currentVoiceSettings.persona
-          }
+          },
+          handleChunk
         );
       } else if (currentMode === 'tarot-physical' && customCards) {
         const promptText = effectiveFollowUp
           ? `Synthesize an Offline reading for inquiry: "${effectiveQuestion}" and follow-up question: "${effectiveFollowUp}"`
           : `Synthesize an Offline reading for my question: "${effectiveQuestion}"`;
 
-        reply = await metaphysicalConsultation(
+        reply = await metaphysicalConsultationStream(
           promptText,
           formattedHistory,
           {
@@ -968,10 +983,11 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
             followUpQuestion: effectiveFollowUp,
             readingCount: nextCount,
             persona: currentVoiceSettings.persona
-          }
+          },
+          handleChunk
         );
       } else if (currentMode === 'tarot-persona' && activeTarotPersona) {
-        reply = await metaphysicalConsultation(
+        reply = await metaphysicalConsultationStream(
           trimmedText,
           formattedHistory,
           {
@@ -979,31 +995,22 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
             personaCardName: activeTarotPersona,
             readingCount: nextCount,
             persona: currentVoiceSettings.persona
-          }
+          },
+          handleChunk
         );
       } else {
-        reply = await metaphysicalConsultation(
+        reply = await metaphysicalConsultationStream(
           trimmedText,
           formattedHistory,
           {
             mode: 'laevus',
             readingCount: nextCount,
             persona: currentVoiceSettings.persona
-          }
+          },
+          handleChunk
         );
       }
 
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      const modelMsg: Message = {
-        id: crypto.randomUUID(),
-        role: 'model',
-        text: reply,
-        timestamp: new Date(),
-        mode: currentMode
-      };
-
-      setMessages(prev => [...prev, modelMsg]);
       const speakVoice = activeTarotPersona ? getVoiceForCharacter(activeTarotPersona) : getSavedVoiceSettings().persona;
       voiceEngine.speak(reply, { persona: speakVoice });
 
