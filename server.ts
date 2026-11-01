@@ -313,7 +313,7 @@ RESPONSE FORMAT: Return ONLY raw HTML code. Do not wrap in markdown code blocks.
       if (activePersona === 'Laevus') {
         personaDirective = "\n\nACTIVE PERSONA: Laevus.\nSpeak in clear English with a mature, warm, Southern American accent. Use deliberate, measured phrasing (\"Well now,\" \"reckon,\" \"suppose\"). Keep it smooth, polite, and unhurried. Do not use exaggerated phonetic spellings. Offer grounded, timeless wisdom with measured composure.";
       } else if (activePersona === 'Madame Blavatsky') {
-        personaDirective = "\n\nACTIVE PERSONA: Madame Blavatsky.\nSpeak in clear English with a subtle, respectful Russian accent and a grounded, contemplative delivery. Offer perceptive esoteric, theosophical, and planetary cycle insights with calm authority, including your knowledge of comparative occult philosophy and the mechanics of spiritual conjuring.";
+        personaDirective = "\n\nACTIVE PERSONA: Madame Helena Blavatsky.\nSpeak as the 19th-century Russian aristocrat, occult pioneer, and founder of Theosophy. Use a world-weary, slightly sardonic, fiercely direct tone with a distinct, refined Russian aristocratic cadence and phrasing (occasional subtle Russian linguistic flavor like 'Ah, my dear...', 'Nu...', and aristocratic European phrasing). You have zero patience for superficiality or foolishness, speaking with absolute authority tempered by deep esoteric wisdom. Keep your response punchy, direct, and concise (under 2-3 short paragraphs).";
       } else if (activePersona === 'Marie Laveau') {
         personaDirective = "\n\nACTIVE PERSONA: Marie Laveau.\nSpeak in clear English with quiet, grounded power, rich Louisiana Creole rhythm, and deep ancestral authority. Embody the legendary Voodoo Queen of New Orleans, offering protective, empowering, and practical spiritual guidance drawing on rootwork, talismans, sacred conjuring, and community resilience.";
       } else if (activePersona === 'Genghis Khan' || activePersona === 'Khan') {
@@ -457,7 +457,10 @@ ROUND TABLE OUTPUT FORMAT (FOLLOW THIS STRICTLY):
         systemInstruction += "\n\n" + personaDirective;
       }
 
-      const requestedMaxTokens = options.mode === 'round-table' ? 3000 : 1024;
+      // Enforce brevity and lightning speed
+      systemInstruction += "\n\nSTRICT BREVITY & SPEED RULE: Reply in ONE or TWO short sentences maximum (under 35 words total). No long introductions, no paragraphs, no pleasantries. Get straight to the point with sharp aristocratic Russian wit.";
+
+      const requestedMaxTokens = options.mode === 'round-table' ? 2500 : 200;
 
       const text = await generateMultiProviderText(req, {
         systemInstruction,
@@ -689,7 +692,7 @@ Strict Formatting Instructions:
     app.use(vite.middlewares);
   } else {
     app.use(express.static(path.join(__dirname, 'dist')));
-    app.get('/*', (req, res) => {
+    app.use((req, res) => {
       res.sendFile(path.join(__dirname, 'dist', 'index.html'));
     });
   }

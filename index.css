@@ -40,3 +40,62 @@
   background-color: rgba(220, 20, 60, 0.25);
   color: #DC143C;
 }
+
+/* 3D Card Flip Perspective & Utilities */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+.card-flip-transition {
+  transition: transform 0.85s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Esoteric Shimmer & Shuffle Keyframes */
+@keyframes cardGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(220, 20, 60, 0.35), 0 0 30px rgba(0, 0, 0, 0.9), inset 0 0 20px rgba(220, 20, 60, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 35px rgba(220, 20, 60, 0.7), 0 0 45px rgba(220, 20, 60, 0.3), inset 0 0 30px rgba(220, 20, 60, 0.35);
+  }
+}
+
+.animate-card-glow {
+  animation: cardGlowPulse 3s infinite ease-in-out;
+}
+
+@keyframes deckShuffle {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-12px) rotate(-4deg) translateX(-8px);
+  }
+  50% {
+    transform: translateY(0) rotate(2deg) translateX(8px);
+  }
+  75% {
+    transform: translateY(-8px) rotate(-2deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+.animate-deck-shuffle {
+  animation: deckShuffle 1.2s infinite cubic-bezier(0.45, 0.05, 0.55, 0.95);
+}
+

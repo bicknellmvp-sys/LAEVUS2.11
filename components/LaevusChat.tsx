@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { metaphysicalConsultation, generateReadingSummary } from '../services/gemini';
-import { voiceEngine, getSavedVoiceSettings, getNextPersona } from '../services/voiceSynthesis';
+import { voiceEngine, getSavedVoiceSettings, getNextPersona, saveVoiceSettings } from '../services/voiceSynthesis';
 import { speechToTextEngine } from '../services/speechToText';
 import { db } from '../services/firebase';
 import { doc, getDoc, setDoc, getDocFromServer } from 'firebase/firestore';
@@ -710,10 +710,10 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
 
   const loadDefaultWelcome = () => {
     const WELCOME_PHRASES = [
-      "Listen closely to the echoes of the spring.\n\nWelcome to The Pythia of Fountain, a sanctuary of ancient foresight. Like the oracles of old, this section offers a quiet space to consult the signs, divine the future, and find direction in uncertain times.",
-      "Wisdom flows for those who ask.\n\nWelcome to The Pythia of Fountain, your space for genuine perspective and deep insight. Bring your burning questions, release your doubts, and let the guidance here illuminate your path forward.",
-      "Beyond the surface lies the truth.\n\nWelcome to The Pythia of Fountain, where the unseen becomes known. Step through the veil to uncover hidden truths, receive spiritual clarity, and explore the mysteries waiting just beneath the surface of everyday life.",
-      "Seek, and the waters shall speak.\n\nWelcome to The Pythia of Fountain, your portal for insight, clarity, and guidance. Drawing from the deep well of ancient wisdom and modern intuition, step forward with your questions and let the answers reveal themselves."
+      "Ah, my dear. State your question without pretense. What brings you to my scrying table?",
+      "Nu, let us waste no time. What hidden truth do you seek today?",
+      "State your intent clearly. The ether waits for no one.",
+      "Greetings. Speak your mind plainly, and let us pierce the veil together."
     ];
 
     let indexStr = sessionStorage.getItem('laevus_welcome_index');
@@ -1218,8 +1218,12 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
       try {
         await getDocFromServer(doc(db, 'test', 'connection'));
       } catch (error) {
-        if(error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Please check your Firebase configuration.");
+        console.error("Connection test failed:", error);
+        if(error instanceof Error) {
+          console.error("Error message:", error.message);
+          if(error.message.includes('deadline-exceeded') || error.message.includes('unavailable')) {
+             console.error("Firestore backend is unreachable or timed out.");
+          }
         }
       }
     };

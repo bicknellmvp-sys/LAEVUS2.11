@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TAROT_DATABASE } from '../data/tarotCards';
 import { RUNE_DATABASE, RuneData } from '../data/runes';
 import { UploadSpread } from './UploadSpread';
+import { Oracle3DCardReveal } from './Oracle3DCardReveal';
 
 interface TarotCard {
   name: string;
@@ -288,25 +289,24 @@ export const DivinationHub: React.FC<DivinationHubProps> = ({
               <button
                 onClick={handleDrawCards}
                 disabled={isDrawing}
-                className="px-5 py-2.5 rounded-xl bg-[#DC143C] hover:bg-[#B81132] text-white font-bold text-xs uppercase tracking-widest transition-all cursor-pointer shadow-[0_0_15px_rgba(220,20,60,0.4)] disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl bg-[#DC143C] hover:bg-[#B81132] text-white font-bold text-xs uppercase tracking-widest transition-all cursor-pointer shadow-[0_0_15px_rgba(220,20,60,0.4)] disabled:opacity-50 flex items-center gap-2"
               >
-                {isDrawing ? 'Shuffling Deck...' : drawnCards.length > 0 ? 'Draw New Spread' : 'Draw 3-Card Spread'}
+                <span>{isDrawing ? 'Shuffling Deck...' : drawnCards.length > 0 ? 'Draw New Spread' : 'Draw 3-Card Spread'}</span>
+                <span className="text-xs">✦</span>
               </button>
             </div>
           </div>
 
-          {drawnCards.length === 3 && flippedCount === 3 && (
-            <div className="flex flex-col items-center gap-2 pt-2">
-              <button
-                onClick={handleConsultOracle}
-                className="px-6 py-3 rounded-xl bg-[#DC143C] hover:bg-[#B81132] text-white font-bold text-xs uppercase tracking-widest transition-all cursor-pointer shadow-[0_0_20px_rgba(220,20,60,0.5)]"
-              >
-                Consult Laevus Oracle with this Spread
-              </button>
-              <p className="text-[10px] text-zinc-600 font-mono italic">
-                The oracle speaks only when the vessels are aligned.
-              </p>
-            </div>
+          {/* Smooth 3-Card Oracle 3D Reveal */}
+          {(isDrawing || drawnCards.length > 0) && (
+            <Oracle3DCardReveal
+              cards={drawnCards}
+              isDrawing={isDrawing}
+              flippedCount={flippedCount}
+              onConsult={handleConsultOracle}
+              onDrawNew={handleDrawCards}
+              question={question}
+            />
           )}
         </div>
       )}

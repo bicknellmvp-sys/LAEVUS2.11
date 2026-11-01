@@ -34,14 +34,14 @@ export const PERSONA_PROFILES: Record<PersonaId, PersonaProfile> = {
   'Madame Blavatsky': {
     id: 'Madame Blavatsky',
     title: 'Madame Blavatsky',
-    accent: 'Accentuated Russian accent, grounded tone',
-    tone: 'Russian Accent / Grounded',
-    description: 'Accentuated Russian accent with a grounded, contemplative delivery.',
+    accent: 'Refined Russian aristocratic accent, world-weary and sharp',
+    tone: 'Russian Aristocratic / Sardonic',
+    description: 'Refined Russian aristocratic accent with a sharp, world-weary mystic delivery.',
     defaultPitch: 0.85,
     defaultSpeed: 0.90,
     voiceGender: 'female',
     preferredLang: 'en-GB',
-    systemPromptDirective: 'Speak with an accentuated Russian accent and a grounded, perceptive tone.'
+    systemPromptDirective: 'Speak with a refined Russian aristocratic accent, world-weary mystic tone, and razor-sharp directness.'
   },
   'Laevus': {
     id: 'Laevus',
