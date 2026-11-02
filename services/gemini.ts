@@ -195,18 +195,32 @@ export async function metaphysicalConsultationStream(
           if (payload === '[DONE]') continue;
           try {
             const parsed = JSON.parse(payload);
+            if (parsed.error) {
+              throw new Error(parsed.error);
+            }
             if (parsed.text) {
               fullText += parsed.text;
               onChunk(fullText);
             }
-          } catch (e) {}
+          } catch (e: any) {
+            if (e?.message && !e.message.includes('JSON')) {
+              throw e;
+            }
+          }
         }
       }
     }
 
-    return fullText || "The digital spirits are silent...";
+    if (!fullText || !fullText.trim()) {
+      console.warn("Stream finished with empty text, invoking fallback consultation");
+      const fallback = await metaphysicalConsultation(message, history, options);
+      onChunk(fallback);
+      return fallback;
+    }
+
+    return fullText;
   } catch (error: any) {
-    console.error("Stream Client Error:", error);
+    console.error("Stream Client Error, falling back to standard consultation:", error);
     const fallback = await metaphysicalConsultation(message, history, options);
     onChunk(fallback);
     return fallback;

@@ -50,5 +50,10 @@ service cloud.firestore {
         );
       allow delete: if false; // Users cannot delete their profiles via client SDK
     }
+
+    // 4. Connection test / health check rule
+    match /test/{docId} {
+      allow get: if isValidId(docId);
+    }
   }
 }

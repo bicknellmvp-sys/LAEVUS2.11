@@ -97,16 +97,16 @@ export const Hero: React.FC<HeroProps> = ({
   };
 
   return (
-    <header className="relative z-40 max-w-4xl mx-auto px-4 pt-4 pb-4 mb-4 border-b border-zinc-900/40">
+    <header className="relative z-40 max-w-4xl mx-auto px-3 sm:px-4 pt-2 sm:pt-4 pb-2 sm:pb-4 mb-1 sm:mb-4 border-b border-zinc-900/40 w-full">
       <div className="flex flex-col items-center justify-center text-center relative">
         <div className="relative inline-flex flex-col items-end">
           {/* Universal Persistent Home Link */}
           <div className="flex flex-col items-center">
-            <h1 className="font-syne text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-[-0.06em] uppercase leading-none selection:bg-purple-900/50 selection:text-purple-200 relative select-text">
+            <h1 className="font-syne text-3xl sm:text-6xl md:text-7xl font-extrabold tracking-[-0.06em] uppercase leading-none selection:bg-purple-900/50 selection:text-purple-200 relative select-text">
               <a
                 href="/"
                 onClick={handleHomeClick} 
-                className={`transition-all uppercase font-syne text-center tracking-[-0.06em] leading-none font-extrabold focus:outline-none cursor-pointer bg-transparent border-none p-0 outline-none inline-flex items-baseline gap-2 ${
+                className={`transition-all uppercase font-syne text-center tracking-[-0.06em] leading-none font-extrabold focus:outline-none cursor-pointer bg-transparent border-none p-0 outline-none inline-flex items-baseline gap-1.5 sm:gap-2 ${
                   isDripping 
                     ? 'animate-drip-black drop-shadow-[0_0_20px_rgba(0,0,0,0.9)]' 
                     : 'text-[#DC143C] drop-shadow-[0_0_15px_rgba(220,20,60,0.5)] hover:drop-shadow-[0_0_22px_rgba(220,20,60,0.8)]'
@@ -114,10 +114,10 @@ export const Hero: React.FC<HeroProps> = ({
                 title="Return to Laevus 2000 Sanctuary"
               >
                 <span>Laevus</span>
-                <span className="text-xl sm:text-2xl md:text-3xl font-mono text-zinc-500 tracking-widest font-normal">2000</span>
+                <span className="text-base sm:text-2xl md:text-3xl font-mono text-zinc-500 tracking-widest font-normal">2000</span>
               </a>
             </h1>
-            <span className="text-[9px] font-mono uppercase tracking-[0.25em] text-zinc-600 font-bold mt-1">
+            <span className="text-[7.5px] sm:text-[9px] font-mono uppercase tracking-[0.2em] sm:tracking-[0.25em] text-zinc-600 font-bold mt-0.5 sm:mt-1">
               Esoteric Divination & Sovereign Philosophy
             </span>
           </div>
@@ -125,19 +125,19 @@ export const Hero: React.FC<HeroProps> = ({
           {/* Navigation dropdown box placed directly under the header */}
           <div 
             ref={dropdownRef}
-            className="relative z-50 mt-2 self-end"
+            className="relative z-50 mt-1 sm:mt-2 self-end"
           >
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="flex items-center gap-1.5 px-2.5 py-1 bg-black/90 border border-zinc-800 hover:border-[#DC143C]/60 rounded-md transition-all duration-200 cursor-pointer shadow-md group origin-right"
+              className="flex items-center gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 bg-black/90 border border-zinc-800 hover:border-[#DC143C]/60 rounded-md transition-all duration-200 cursor-pointer shadow-md group origin-right"
               id="navigation-dropdown-trigger"
               aria-expanded={isOpen}
               aria-label="Toggle navigation menu"
             >
-              <span className="text-[11px] sm:text-[12px] font-bold tracking-widest uppercase text-zinc-300 group-hover:text-[#DC143C] group-active:text-[#DC143C] transition-colors font-google-sans">
+              <span className="text-[10px] sm:text-[12px] font-bold tracking-widest uppercase text-zinc-300 group-hover:text-[#DC143C] group-active:text-[#DC143C] transition-colors font-google-sans">
                 {getDropdownLabel()}
               </span>
-              <span className={`text-[9px] text-zinc-400 group-hover:text-[#DC143C] transition-transform duration-200 ${isOpen ? 'rotate-180 text-[#DC143C]' : ''}`}>
+              <span className={`text-[8px] sm:text-[9px] text-zinc-400 group-hover:text-[#DC143C] transition-transform duration-200 ${isOpen ? 'rotate-180 text-[#DC143C]' : ''}`}>
                 ▾
               </span>
             </button>

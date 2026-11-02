@@ -55,12 +55,24 @@
         }
       },
       "required": ["email", "uid"]
+    },
+    "TestConnection": {
+      "title": "TestConnection",
+      "description": "Sanctuary connection health check document.",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string" }
+      }
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "User",
       "description": "User profiles and their associated history."
+    },
+    "/test/{docId}": {
+      "schema": "TestConnection",
+      "description": "Sanctuary connection health check document."
     }
   }
 }

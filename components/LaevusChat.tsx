@@ -937,17 +937,22 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
 
 
       const msgId = crypto.randomUUID();
-      setMessages(prev => [...prev, {
-        id: msgId,
-        role: 'model',
-        text: '',
-        timestamp: new Date(),
-        mode: currentMode
-      }]);
+      let hasAddedModelMsg = false;
 
       const handleChunk = (chunkText: string) => {
         reply = chunkText;
-        setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text: chunkText } : m));
+        if (!hasAddedModelMsg) {
+          hasAddedModelMsg = true;
+          setMessages(prev => [...prev, {
+            id: msgId,
+            role: 'model',
+            text: chunkText,
+            timestamp: new Date(),
+            mode: currentMode
+          }]);
+        } else {
+          setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text: chunkText } : m));
+        }
       };
 
       if (currentMode === 'tarot' && customCards) {
@@ -1011,8 +1016,21 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
         );
       }
 
+      const finalReply = (reply && reply.trim()) || "The etheric currents are silent. State your query plainly once more.";
+      if (!hasAddedModelMsg) {
+        setMessages(prev => [...prev, {
+          id: msgId,
+          role: 'model',
+          text: finalReply,
+          timestamp: new Date(),
+          mode: currentMode
+        }]);
+      } else {
+        setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text: finalReply } : m));
+      }
+
       const speakVoice = activeTarotPersona ? getVoiceForCharacter(activeTarotPersona) : getSavedVoiceSettings().persona;
-      voiceEngine.speak(reply, { persona: speakVoice });
+      voiceEngine.speak(finalReply, { persona: speakVoice });
 
       // Save to transcripts
       if ((currentMode === 'tarot' || currentMode === 'tarot-physical') && customCards) {
@@ -1020,31 +1038,31 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
         addTranscriptRecord(
           'tarot',
           `${currentMode === 'tarot-physical' ? 'Physical Synthesis' : 'Digital Draw'}: ${tarotQuestion || 'Life Alignment'}`,
-          `Question: ${tarotQuestion}\n\nCards Drawn:\n${cardsDesc}\n\nInterpretation:\n${reply}`,
+          `Question: ${tarotQuestion}\n\nCards Drawn:\n${cardsDesc}\n\nInterpretation:\n${finalReply}`,
           {
             querentPrompt: tarotQuestion || "General alignment",
             drawnCards: customCards,
-            madamBlavatskyReply: reply
+            madamBlavatskyReply: finalReply
           }
         );
       } else if (currentMode === 'tarot-persona' && activeTarotPersona) {
         addTranscriptRecord(
           'madam',
           `Conversed with ${activeTarotPersona}`,
-          `User: ${trimmedText}\n\n${activeTarotPersona}: ${reply}`,
+          `User: ${trimmedText}\n\n${activeTarotPersona}: ${finalReply}`,
           {
             querentPrompt: trimmedText,
-            madamBlavatskyReply: reply
+            madamBlavatskyReply: finalReply
           }
         );
       } else {
         addTranscriptRecord(
           'madam',
           `Consultation with ${currentVoiceSettings.persona}`,
-          `User: ${trimmedText}\n\n${currentVoiceSettings.persona}: ${reply}`,
+          `User: ${trimmedText}\n\n${currentVoiceSettings.persona}: ${finalReply}`,
           {
             querentPrompt: trimmedText,
-            madamBlavatskyReply: reply
+            madamBlavatskyReply: finalReply
           }
         );
       }
@@ -1061,7 +1079,7 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
           ? customCards.map(c => `${c.position}: ${c.name}`) 
           : (extraInfo?.runes ? extraInfo.runes.map((r: any, idx: number) => `Rune ${idx + 1}: ${r.name}`) : undefined);
 
-        triggerAutoSummary(reply, {
+        triggerAutoSummary(finalReply, {
           type: divType,
           question: effectiveQuestion !== 'General alignment' ? effectiveQuestion : (tarotQuestion || trimmedText),
           items: itemsList,
@@ -1073,12 +1091,15 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
       console.error(err);
       const errText = "An error occurred with the AI service. Please verify that your GEMINI_API_KEY environment variable is configured correctly.";
       
-      setMessages(prev => [...prev, {
-        id: crypto.randomUUID(),
-        role: 'model',
-        text: errText,
-        timestamp: new Date()
-      }]);
+      setMessages(prev => [
+        ...prev.filter(m => m.id !== msgId),
+        {
+          id: crypto.randomUUID(),
+          role: 'model',
+          text: errText,
+          timestamp: new Date()
+        }
+      ]);
     } finally {
       setIsTyping(false);
     }
@@ -1224,13 +1245,9 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
     const testConnection = async () => {
       try {
         await getDocFromServer(doc(db, 'test', 'connection'));
-      } catch (error) {
-        console.error("Connection test failed:", error);
-        if(error instanceof Error) {
-          console.error("Error message:", error.message);
-          if(error.message.includes('deadline-exceeded') || error.message.includes('unavailable')) {
-             console.error("Firestore backend is unreachable or timed out.");
-          }
+      } catch (error: any) {
+        if (error instanceof Error && (error.message.includes('deadline-exceeded') || error.message.includes('unavailable'))) {
+          console.warn("Firestore backend is unreachable or timed out.");
         }
       }
     };
@@ -1238,28 +1255,28 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
   }, []);
 
   return (
-    <div className={`w-full px-2 sm:px-4 md:px-6 py-1 flex flex-col relative font-google-sans text-zinc-300 ${activeView === 'chat' ? 'flex-1 min-h-0 h-full overflow-hidden' : 'h-auto overflow-y-auto'}`}>
+    <div className={`w-full px-1.5 sm:px-4 md:px-6 py-0 sm:py-1 flex flex-col relative font-google-sans text-zinc-300 ${activeView === 'chat' ? 'flex-1 min-h-0 h-full overflow-hidden' : 'h-auto overflow-y-auto'}`}>
 
       {/* VIEW: PRIMARY ORACLE CHAT */}
       {activeView === 'chat' && (
-        <div className="flex-1 min-h-0 flex flex-col p-1 mb-2 relative animate-fadeIn w-full max-w-5xl mx-auto overflow-hidden font-google-sans">
+        <div className="flex-1 min-h-0 flex flex-col p-0.5 sm:p-1 mb-0.5 sm:mb-2 relative animate-fadeIn w-full max-w-5xl mx-auto overflow-hidden font-google-sans">
           
           {/* Active Tarot Persona Banner */}
           {activeTarotPersona && (
-            <div className="px-4 py-2 bg-black flex items-center justify-between text-xs mb-2 rounded-lg border border-amber-500/25 flex-shrink-0 font-google-sans text-amber-300">
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-amber-500 font-bold">Archetype</span>
+            <div className="px-3 sm:px-4 py-1.5 sm:py-2 bg-black flex items-center justify-between text-xs mb-1.5 sm:mb-2 rounded-lg border border-amber-500/25 flex-shrink-0 font-google-sans text-amber-300">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <span className="text-[9px] sm:text-[10px] font-mono uppercase tracking-widest text-amber-500 font-bold">Archetype</span>
                 <div className="font-google-sans text-left">
                   <div className="flex items-center">
-                    <span className="font-bold text-zinc-200 font-google-sans">{activeTarotPersona} Persona</span>
-                    <span className="mx-2 text-zinc-700">|</span>
-                    <span className="text-zinc-500 text-[10px] font-google-sans">Living archetype of the Major Arcana</span>
+                    <span className="font-bold text-zinc-200 font-google-sans text-xs">{activeTarotPersona} Persona</span>
+                    <span className="mx-1.5 sm:mx-2 text-zinc-700">|</span>
+                    <span className="text-zinc-500 text-[9px] sm:text-[10px] font-google-sans hidden xs:inline">Living archetype of the Major Arcana</span>
                   </div>
                 </div>
               </div>
               <button
                 onClick={handleReleaseTarotPersona}
-                className="px-2.5 py-1 rounded bg-black text-amber-400 text-[9px] uppercase hover:bg-amber-500/10 transition-colors cursor-pointer border border-zinc-900 font-google-sans"
+                className="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded bg-black text-amber-400 text-[8.5px] sm:text-[9px] uppercase hover:bg-amber-500/10 transition-colors cursor-pointer border border-zinc-900 font-google-sans"
               >
                 Depart
               </button>
@@ -1268,13 +1285,13 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
 
 
           {/* Top Header Bar outside the chat box */}
-          <div className="w-full flex items-center justify-between px-2 mb-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+          <div className="w-full flex items-center justify-between px-1.5 sm:px-2 mb-1 sm:mb-1.5 text-[9px] sm:text-[10px] font-mono uppercase tracking-wider text-zinc-400">
             <span className="text-zinc-500 font-bold">
               {activeTarotPersona ? activeTarotPersona.toUpperCase() : (getSavedVoiceSettings().enabled === false ? 'LAEVUS' : activePersonaName.toUpperCase())}
             </span>
             <button
               onClick={handleShareEntireConversation}
-              className="text-zinc-400 hover:text-[#DC143C] transition-colors flex items-center gap-1 cursor-pointer uppercase text-[9px] bg-transparent border-0 p-0"
+              className="text-zinc-400 hover:text-[#DC143C] transition-colors flex items-center gap-1 cursor-pointer uppercase text-[8.5px] sm:text-[9px] bg-transparent border-0 p-0"
             >
               <span>Share</span>
               <span>↗</span>
@@ -1284,7 +1301,7 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
           {/* Unified Oracle Ledger (Box Removed) */}
           <div 
             ref={messagesContainerRef}
-            className="flex-1 py-4 px-6 overflow-y-auto space-y-4 text-[#F8F7F4] flex flex-col relative mb-3 bg-black border border-zinc-900 rounded-xl shadow-xl"
+            className="flex-1 py-2 sm:py-4 px-2.5 sm:px-6 overflow-y-auto space-y-2.5 sm:space-y-4 text-[#F8F7F4] flex flex-col relative mb-1 sm:mb-3 bg-black border border-zinc-900 rounded-xl shadow-xl"
           >
             <div className="flex-1 space-y-4 w-full max-w-4xl mx-auto text-xs leading-relaxed">
               {/* CURRENT DIVINATION READING 3-SENTENCE SUMMARY (TOP OF CHAT HISTORY) */}
@@ -1497,9 +1514,9 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
           </div>
 
           {/* Input block with a slight gap */}
-          <div className="pt-4 pb-2 bg-transparent">
+          <div className="pt-1.5 sm:pt-4 pb-1 sm:pb-2 bg-transparent">
             {/* Text input form */}
-            <div className="relative flex items-center rounded-xl bg-black border border-zinc-900 focus-within:ring-1 focus-within:ring-[#DC143C]/40 transition-all p-1.5 gap-2 shadow-xl">
+            <div className="relative flex items-center rounded-xl bg-black border border-zinc-900 focus-within:ring-1 focus-within:ring-[#DC143C]/40 transition-all p-1 sm:p-1.5 gap-1.5 sm:gap-2 shadow-xl">
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -1510,21 +1527,21 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
                   }
                 }}
                 disabled={isTyping}
-                placeholder="Type your message here..."
-                rows={2}
-                className="flex-1 bg-transparent text-xs text-zinc-300 placeholder-zinc-700 focus:outline-none px-2.5 py-1.5 resize-none font-google-sans"
+                placeholder="Ask the Oracle..."
+                rows={1}
+                className="flex-1 bg-transparent text-xs text-zinc-300 placeholder-zinc-700 focus:outline-none px-2 sm:px-2.5 py-1 sm:py-1.5 resize-none font-google-sans min-h-[36px] max-h-20"
               />
               <button
                 type="button"
                 onClick={handleToggleVoiceInput}
                 className={isListening 
-                  ? 'p-2.5 rounded-lg text-xs transition-all cursor-pointer border flex items-center justify-center shrink-0 bg-[#DC143C] text-white border-[#DC143C] animate-pulse shadow-[0_0_12px_rgba(220,20,60,0.5)]' 
-                  : 'p-2.5 rounded-lg text-xs transition-all cursor-pointer border flex items-center justify-center shrink-0 bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-[#DC143C] hover:border-[#DC143C]/60 hover:bg-zinc-850 active:text-[#DC143C] active:border-[#DC143C]'
+                  ? 'p-2 sm:p-2.5 rounded-lg text-xs transition-all cursor-pointer border flex items-center justify-center shrink-0 bg-[#DC143C] text-white border-[#DC143C] animate-pulse shadow-[0_0_12px_rgba(220,20,60,0.5)]' 
+                  : 'p-2 sm:p-2.5 rounded-lg text-xs transition-all cursor-pointer border flex items-center justify-center shrink-0 bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-[#DC143C] hover:border-[#DC143C]/60 hover:bg-zinc-850 active:text-[#DC143C] active:border-[#DC143C]'
                 }
                 title="Dictate with voice"
                 aria-label="Dictate with voice"
               >
-                <svg className="w-4 h-4 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
                   <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                   <line x1="12" x2="12" y1="19" y2="22" />
@@ -1534,13 +1551,13 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
                 onClick={() => handleSend(input)}
                 disabled={!input.trim() || isTyping}
                 className={input.trim() && !isTyping 
-                  ? 'p-2.5 rounded-lg transition-all flex items-center justify-center shrink-0 bg-[#DC143C] hover:bg-[#B81132] text-white cursor-pointer shadow-[0_0_12px_rgba(220,20,60,0.5)] border border-[#DC143C]' 
-                  : 'p-2.5 rounded-lg transition-all flex items-center justify-center shrink-0 bg-zinc-900 text-zinc-400 border border-zinc-800 hover:text-[#DC143C] hover:border-[#DC143C]/60 hover:bg-zinc-850 active:text-[#DC143C] active:border-[#DC143C] cursor-pointer'
+                  ? 'p-2 sm:p-2.5 rounded-lg transition-all flex items-center justify-center shrink-0 bg-[#DC143C] hover:bg-[#B81132] text-white cursor-pointer shadow-[0_0_12px_rgba(220,20,60,0.5)] border border-[#DC143C]' 
+                  : 'p-2 sm:p-2.5 rounded-lg transition-all flex items-center justify-center shrink-0 bg-zinc-900 text-zinc-400 border border-zinc-800 hover:text-[#DC143C] hover:border-[#DC143C]/60 hover:bg-zinc-850 active:text-[#DC143C] active:border-[#DC143C] cursor-pointer'
                 }
                 title="Send message"
                 aria-label="Send message"
               >
-                <svg className="w-4 h-4 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="12" y1="19" x2="12" y2="5" />
                   <polyline points="5 12 12 5 19 12" />
                 </svg>
