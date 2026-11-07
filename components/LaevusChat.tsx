@@ -839,41 +839,67 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
       setSentimentScores(newScores);
       localStorage.setItem('laevus_sentiment_timeline', JSON.stringify(newScores));
 
+      const msgId = crypto.randomUUID();
+      let hasAddedModelMsg = false;
+      let reply = "";
+
+      const handleChunk = (chunkText: string) => {
+        reply = chunkText;
+        if (!hasAddedModelMsg) {
+          hasAddedModelMsg = true;
+          setMessages(prev => [...prev, {
+            id: msgId,
+            role: 'model',
+            text: chunkText,
+            timestamp: new Date(),
+            mode: 'tarot-persona'
+          }]);
+        } else {
+          setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text: chunkText } : m));
+        }
+      };
+
       try {
-        const reply = await metaphysicalConsultation(
+        reply = await metaphysicalConsultationStream(
           questionText,
           [],
           {
             mode: 'tarot-persona',
             personaCardName: normalizedCardName,
-            readingCount: nextCount
-          }
+            readingCount: nextCount,
+            persona: normalizedCardName
+          },
+          handleChunk
         );
 
-        const modelMsg: Message = {
-          id: crypto.randomUUID(),
-          role: 'model',
-          text: reply,
-          timestamp: new Date(),
-          mode: 'tarot-persona'
-        };
+        const finalReply = (reply && reply.trim()) || "The etheric currents are silent. State your query plainly once more.";
+        if (!hasAddedModelMsg) {
+          setMessages(prev => [...prev, {
+            id: msgId,
+            role: 'model',
+            text: finalReply,
+            timestamp: new Date(),
+            mode: 'tarot-persona'
+          }]);
+        } else {
+          setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text: finalReply } : m));
+        }
 
-        setMessages(prev => [...prev, modelMsg]);
         const speakVoice = getVoiceForCharacter(normalizedCardName);
-        voiceEngine.speak(reply, { persona: speakVoice });
+        voiceEngine.speak(finalReply, { persona: speakVoice });
 
         addTranscriptRecord(
           'madam',
           `Conversed with ${normalizedCardName}`,
-          `User: ${questionText}\n\n${normalizedCardName}: ${reply}`,
+          `User: ${questionText}\n\n${normalizedCardName}: ${finalReply}`,
           {
             querentPrompt: questionText,
-            madamBlavatskyReply: reply
+            madamBlavatskyReply: finalReply
           }
         );
 
         if (localStorage.getItem('laevus_auto_summary_enabled') !== 'false') {
-          triggerAutoSummary(reply, {
+          triggerAutoSummary(finalReply, {
             type: `${normalizedCardName} Seance`,
             question: questionText,
             title: `${normalizedCardName} Archetype Oracle`
@@ -882,12 +908,15 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
       } catch (err) {
         console.error(err);
         const errText = "An error occurred with the AI service. Please verify that your GEMINI_API_KEY environment variable is configured correctly.";
-        setMessages(prev => [...prev, {
-          id: crypto.randomUUID(),
-          role: 'model',
-          text: errText,
-          timestamp: new Date()
-        }]);
+        setMessages(prev => [
+          ...prev.filter(m => m.id !== msgId),
+          {
+            id: crypto.randomUUID(),
+            role: 'model',
+            text: errText,
+            timestamp: new Date()
+          }
+        ]);
       } finally {
         setIsTyping(false);
       }
@@ -914,6 +943,7 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
+    let msgId = '';
 
     try {
       const formattedHistory = messages
@@ -935,8 +965,7 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
         saveVoiceSettings(currentVoiceSettings);
       }
 
-
-      const msgId = crypto.randomUUID();
+      msgId = crypto.randomUUID();
       let hasAddedModelMsg = false;
 
       const handleChunk = (chunkText: string) => {
@@ -1092,7 +1121,7 @@ export const LaevusChat: React.FC<LaevusChatProps> = ({
       const errText = "An error occurred with the AI service. Please verify that your GEMINI_API_KEY environment variable is configured correctly.";
       
       setMessages(prev => [
-        ...prev.filter(m => m.id !== msgId),
+        ...(msgId ? prev.filter(m => m.id !== msgId) : prev),
         {
           id: crypto.randomUUID(),
           role: 'model',

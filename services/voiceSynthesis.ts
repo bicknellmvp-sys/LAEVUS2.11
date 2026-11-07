@@ -34,14 +34,14 @@ export const PERSONA_PROFILES: Record<PersonaId, PersonaProfile> = {
   'Madame Blavatsky': {
     id: 'Madame Blavatsky',
     title: 'Madame Blavatsky',
-    accent: 'Refined Russian aristocratic accent, world-weary and sharp',
-    tone: 'Russian Aristocratic / Sardonic',
-    description: 'Refined Russian aristocratic accent with a sharp, world-weary mystic delivery.',
-    defaultPitch: 0.85,
-    defaultSpeed: 0.90,
+    accent: 'Refined, slight Russian aristocratic accent, world-weary and sharp',
+    tone: 'Russian Aristocratic / Curt & Sardonic',
+    description: 'Refined Russian noblewoman cadence with world-weary mystic directness and authentic Slavic inflection.',
+    defaultPitch: 0.82,
+    defaultSpeed: 0.88,
     voiceGender: 'female',
-    preferredLang: 'en-GB',
-    systemPromptDirective: 'Speak with a refined Russian aristocratic accent, world-weary mystic tone, and razor-sharp directness.'
+    preferredLang: 'ru-RU',
+    systemPromptDirective: 'RESPONSE MODE: SHORT. Speak in clear English with an authentic, slight Russian aristocratic accent and cadence. Razor-sharp directness, sardonic wit, and a strict 2-sentence maximum per turn.'
   },
   'Laevus': {
     id: 'Laevus',
@@ -82,7 +82,7 @@ export const PERSONA_PROFILES: Record<PersonaId, PersonaProfile> = {
 };
 
 export const PERSONA_SAMPLES: Record<PersonaId, string> = {
-  'Madame Blavatsky': 'Greetings. I am Madame Blavatsky. Truth is the sovereign light behind all veiled mysteries.',
+  'Madame Blavatsky': 'Nu, what is your inquiry? Let us shatter your illusions and see what the cards truly reveal.',
   'Laevus': 'Welcome, friend. I am Laevus. Time moves like a deep river, carrying ancient wisdom in its quiet currents.',
   'Khan': 'I am Khan. Strategy, discipline, and unyielding focus pave the true path to victory.',
   'Marie': 'Bonjour. I am Marie. Reason and luminous clarity illuminate even the darkest questions.'
@@ -93,15 +93,15 @@ const STORAGE_KEY = 'laevus_voice_settings_v3';
 export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
   enabled: true,
   persona: 'Madame Blavatsky',
-  pitch: 0.85,
-  speed: 0.90,
+  pitch: 0.82,
+  speed: 0.88,
   sttEnabled: true,
   userVoiceMode: 'cloned',
   clonedPitch: 1.0,
   clonedSpeed: 1.0,
   autoSendVoice: false,
   preferredExportFormat: 'mp3',
-  ttsEngine: 'browser'
+  ttsEngine: 'gemini'
 };
 
 export const getSavedVoiceSettings = (): VoiceSettings => {
@@ -234,10 +234,41 @@ class VoiceEngine {
       const female = pool.find(v => /female|zira|samantha|victoria|moira|serena|karen/i.test(v.name));
       if (female) return female;
     } else if (persona === 'Madame Blavatsky') {
-      // Find female voice, preferably UK/British or deeper tone
-      const deepFemale = pool.find(v => /female|victoria|moira|hazel|karen/i.test(v.name) && v.lang.includes('GB'));
-      if (deepFemale) return deepFemale;
-      const female = pool.find(v => /female|zira|samantha|victoria|moira|serena|karen/i.test(v.name));
+      // 1. Look for authentic Russian female voice across all available browser voices
+      const russianFemale = voices.find(v => 
+        (v.lang.toLowerCase().startsWith('ru') || /russian|русск/i.test(v.name)) &&
+        /female|женск|milena|katya|irina|tatyana|tatiana|olga|anna|elena|daria/i.test(v.name)
+      );
+      if (russianFemale) return russianFemale;
+
+      // 2. Look for any Russian voice (which reads with authentic Russian accent)
+      const anyRussian = voices.find(v => 
+        v.lang.toLowerCase().startsWith('ru') || /russian|русск/i.test(v.name)
+      );
+      if (anyRussian) return anyRussian;
+
+      // 3. Look for Slavic / Eastern European female voice (pl, cs, uk, etc.)
+      const slavicFemale = voices.find(v => 
+        (/pl[-_]|cs[-_]|uk[-_]|ru[-_]|bg[-_]/i.test(v.lang) || /slavic|polish|czech|ukrainian/i.test(v.name)) &&
+        !/male/i.test(v.name)
+      );
+      if (slavicFemale) return slavicFemale;
+
+      // 4. Look for British or Continental European female voice (avoids US American voices)
+      const euroFemale = voices.find(v => 
+        (v.lang.toLowerCase().includes('en-gb') || v.lang.toLowerCase().includes('en-ie') || v.lang.toLowerCase().includes('en-au')) &&
+        /female|victoria|moira|hazel|fiona|kate/i.test(v.name)
+      );
+      if (euroFemale) return euroFemale;
+
+      // 5. Any non-US female voice (strictly avoids American Samantha/Zira)
+      const nonUsFemale = voices.find(v => 
+        !v.lang.toLowerCase().includes('en-us') && !/samantha|zira|david/i.test(v.name) &&
+        /female|victoria|karen|moira|fiona|serena/i.test(v.name)
+      );
+      if (nonUsFemale) return nonUsFemale;
+
+      const female = pool.find(v => /female|victoria|moira|serena/i.test(v.name));
       if (female) return female;
     } else if (persona === 'Laevus') {
       const usMatch = pool.find(v => v.lang.toLowerCase().includes('en-us') || /united states|american|david|samantha/i.test(v.name));
@@ -248,13 +279,13 @@ class VoiceEngine {
     }
 
     if (profile.preferredLang) {
-      const langMatches = pool.filter((v) => v.lang.toLowerCase().startsWith(profile.preferredLang!.toLowerCase().slice(0, 2)));
+      const langMatches = voices.filter((v) => v.lang.toLowerCase().startsWith(profile.preferredLang!.toLowerCase().slice(0, 2)));
       if (langMatches.length > 0) return langMatches[0];
     }
 
     if (profile.voiceGender === 'female') {
       const femaleMatches = pool.filter((v) =>
-        /female|zira|samantha|victoria|karen|moira|fiona|serena|stephanie|helena|kate|celine/i.test(v.name)
+        /female|victoria|karen|moira|fiona|serena|stephanie|helena|kate|celine/i.test(v.name)
       );
       if (femaleMatches.length > 0) return femaleMatches[0];
     } else if (profile.voiceGender === 'male') {
@@ -295,6 +326,9 @@ class VoiceEngine {
         const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
         if (AudioCtxClass) {
           const audioCtx = new AudioCtxClass({ sampleRate: 24000 });
+          if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+          }
           const audioBuffer = await audioCtx.decodeAudioData(bytes.buffer);
           const source = audioCtx.createBufferSource();
           source.buffer = audioBuffer;
@@ -325,6 +359,9 @@ class VoiceEngine {
       const selectedVoice = this.selectVoice(settings.persona);
       if (selectedVoice) {
         utterance.voice = selectedVoice;
+        if (selectedVoice.lang) {
+          utterance.lang = selectedVoice.lang;
+        }
       }
 
       utterance.onstart = () => {

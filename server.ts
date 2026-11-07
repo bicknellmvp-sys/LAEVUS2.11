@@ -21,7 +21,13 @@ export function getEffectiveApiKey(reqKey?: string): string {
   );
 }
 
-const GEMINI_MODEL = 'gemini-3.8-flash';
+const GEMINI_MODEL = 'gemini-flash-lite-latest';
+const CANDIDATE_GEMINI_MODELS = [
+  'gemini-flash-lite-latest',
+  'gemini-3.1-flash-lite',
+  'gemini-3.5-flash-lite',
+  'gemini-3.8-flash'
+];
 const GEMINI_TTS_MODEL = 'gemini-3.8-flash-lite-tts';
 
 function getAiClient(customKey?: string): GoogleGenAI {
@@ -196,20 +202,45 @@ async function generateMultiProviderText(req: any, params: {
     });
   }
 
-  const response = await callGeminiWithFallback(async (client) => {
-    return await client.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: { parts: partsToSend },
-      config: {
-        systemInstruction: params.systemInstruction,
-        temperature: params.temperature ?? 0.7,
-        maxOutputTokens: params.maxTokens ?? 1024,
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+  let lastGeminiErr: any = null;
+  for (const modelName of CANDIDATE_GEMINI_MODELS) {
+    try {
+      const response = await callGeminiWithFallback(async (client) => {
+        const config: any = {
+          systemInstruction: params.systemInstruction,
+          temperature: params.temperature ?? 0.7,
+          maxOutputTokens: params.maxTokens ?? 1024,
+        };
+        if (modelName === 'gemini-3.8-flash') {
+          config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
+        }
+        return await client.models.generateContent({
+          model: modelName,
+          contents: { parts: partsToSend },
+          config
+        });
+      }, rawKey);
+      return response.text || '';
+    } catch (err: any) {
+      lastGeminiErr = err;
+      const isRetryable =
+        err?.message?.includes('429') ||
+        err?.message?.includes('RESOURCE_EXHAUSTED') ||
+        err?.message?.includes('quota') ||
+        err?.message?.includes('503') ||
+        err?.message?.includes('UNAVAILABLE') ||
+        err?.message?.includes('404') ||
+        err?.status === 429 ||
+        err?.status === 503;
+      if (!isRetryable) {
+        throw err;
       }
-    });
-  });
+      console.warn(`Gemini model ${modelName} error (${err?.message?.slice(0, 80)}), trying fallback model...`);
+    }
+  }
 
-  return response.text || '';
+  if (lastGeminiErr) throw lastGeminiErr;
+  return '';
 }
 
 async function startServer() {
@@ -312,8 +343,12 @@ RESPONSE FORMAT: Return ONLY raw HTML code. Do not wrap in markdown code blocks.
 
       if (activePersona === 'Laevus') {
         personaDirective = "\n\nACTIVE PERSONA: Laevus.\nSpeak in clear English with a mature, warm, Southern American accent. Use deliberate, measured phrasing (\"Well now,\" \"reckon,\" \"suppose\"). Keep it smooth, polite, and unhurried. Do not use exaggerated phonetic spellings. Offer grounded, timeless wisdom with measured composure.";
-      } else if (activePersona === 'Madame Blavatsky') {
-        personaDirective = "\n\nACTIVE PERSONA: Madame Helena Blavatsky.\nSpeak as the 19th-century Russian aristocrat, occult pioneer, and founder of Theosophy. Use a world-weary, slightly sardonic, fiercely direct tone with a distinct, refined Russian aristocratic cadence and phrasing (occasional subtle Russian linguistic flavor like 'Ah, my dear...', 'Nu...', and aristocratic European phrasing). You have zero patience for superficiality or foolishness, speaking with absolute authority tempered by deep esoteric wisdom. Keep your response punchy, direct, and concise (under 2-3 short paragraphs).";
+      } else if (activePersona === 'Madame Blavatsky' || activePersona === 'Madame Helena Blavatsky' || activePersona === 'Blavatsky') {
+        personaDirective = "\n\nACTIVE PERSONA: Madame Helena Petrovna Blavatsky.\n" +
+          "IDENTITY & HERITAGE: 19th-century Russian aristocrat, occult pioneer, and founder of Theosophy sitting across a dim consultation table.\n" +
+          "SPEECH & CADENCE: Speak in curt, aristocratic Russian-inflected English. Use crisp, razor-sharp European phrasing, cynical aristocratic cadence, and subtle Russian conversational flavor (e.g. 'Nu...', 'Ah, my dear...', 'Bozhe moy...'). You hold zero patience for fools, pretense, or superficiality; speak with cold authority and piercing psychological insight.\n" +
+          "RESPONSE MODE: SHORT (ULTRA-LOW LATENCY, HIGH SPEED). Instantaneous, razor-sharp distillation. Zero preamble, zero throat-clearing, and zero long-winded esoteric monologues.\n" +
+          "HARD CONSTRAINT: STRICT 2-SENTENCE MAXIMUM PER TURN (under 35 words total). NEVER produce a 3rd sentence or any paragraph breaks. Deliver exactly one or two incisive sentences and stop immediately.";
       } else if (activePersona === 'Marie Laveau') {
         personaDirective = "\n\nACTIVE PERSONA: Marie Laveau.\nSpeak in clear English with quiet, grounded power, rich Louisiana Creole rhythm, and deep ancestral authority. Embody the legendary Voodoo Queen of New Orleans, offering protective, empowering, and practical spiritual guidance drawing on rootwork, talismans, sacred conjuring, and community resilience.";
       } else if (activePersona === 'Genghis Khan' || activePersona === 'Khan') {
@@ -458,9 +493,9 @@ ROUND TABLE OUTPUT FORMAT (FOLLOW THIS STRICTLY):
       }
 
       // Enforce brevity and lightning speed
-      systemInstruction += "\n\nSTRICT BREVITY & SPEED RULE: Reply in ONE or TWO short sentences maximum (under 40 words total). No long introductions, no paragraphs, no pleasantries. Get straight to the point with sharp aristocratic Russian wit.";
+      systemInstruction += "\n\nRESPONSE MODE: SHORT (ULTRA-LOW LATENCY, HIGH SPEED DIRECTIVE).\nSTRICT 2-SENTENCE MAXIMUM: Reply in EXACTLY ONE OR TWO SHORT SENTENCES TOTAL (under 35 words). NEVER exceed 2 sentences. No greeting, no pleasantries, no padding. Cut straight to the point immediately.";
 
-      const requestedMaxTokens = options.mode === 'round-table' ? 2500 : 1024;
+      const requestedMaxTokens = options.mode === 'round-table' ? 2500 : 350;
 
       const text = await generateMultiProviderText(req, {
         systemInstruction,
@@ -494,8 +529,12 @@ ROUND TABLE OUTPUT FORMAT (FOLLOW THIS STRICTLY):
 
     if (activePersona === 'Laevus') {
       personaDirective = "\n\nACTIVE PERSONA: Laevus.\nSpeak in clear English with a mature, warm, Southern American accent. Use deliberate, measured phrasing (\"Well now,\" \"reckon,\" \"suppose\"). Keep it smooth, polite, and unhurried. Do not use exaggerated phonetic spellings. Offer grounded, timeless wisdom with measured composure.";
-    } else if (activePersona === 'Madame Blavatsky') {
-      personaDirective = "\n\nACTIVE PERSONA: Madame Helena Blavatsky.\nSpeak as the 19th-century Russian aristocrat, occult pioneer, and founder of Theosophy. Use a world-weary, slightly sardonic, fiercely direct tone with a distinct, refined Russian aristocratic cadence and phrasing (occasional subtle Russian linguistic flavor like 'Ah, my dear...', 'Nu...', and aristocratic European phrasing). You have zero patience for superficiality or foolishness, speaking with absolute authority tempered by deep esoteric wisdom. Keep your response punchy, direct, and concise.";
+    } else if (activePersona === 'Madame Blavatsky' || activePersona === 'Madame Helena Blavatsky' || activePersona === 'Blavatsky') {
+      personaDirective = "\n\nACTIVE PERSONA: Madame Helena Petrovna Blavatsky.\n" +
+        "IDENTITY & HERITAGE: 19th-century Russian aristocrat, occult pioneer, and founder of Theosophy sitting across a dim consultation table.\n" +
+        "SPEECH & CADENCE: Speak in curt, aristocratic Russian-inflected English. Use crisp, razor-sharp European phrasing, cynical aristocratic cadence, and subtle Russian conversational flavor (e.g. 'Nu...', 'Ah, my dear...', 'Bozhe moy...'). You hold zero patience for fools, pretense, or superficiality; speak with cold authority and piercing psychological insight.\n" +
+        "RESPONSE MODE: SHORT (ULTRA-LOW LATENCY, HIGH SPEED). Instantaneous, razor-sharp distillation. Zero preamble, zero throat-clearing, and zero long-winded esoteric monologues.\n" +
+        "HARD CONSTRAINT: STRICT 2-SENTENCE MAXIMUM PER TURN (under 35 words total). NEVER produce a 3rd sentence or any paragraph breaks. Deliver exactly one or two incisive sentences and stop immediately.";
     } else if (activePersona === 'Marie Laveau') {
       personaDirective = "\n\nACTIVE PERSONA: Marie Laveau.\nSpeak in clear English with quiet, grounded power, rich Louisiana Creole rhythm, and deep ancestral authority. Embody the legendary Voodoo Queen of New Orleans, offering protective, empowering, and practical spiritual guidance drawing on rootwork, talismans, sacred conjuring, and community resilience.";
     } else if (activePersona === 'Genghis Khan' || activePersona === 'Khan') {
@@ -532,7 +571,7 @@ ROUND TABLE OUTPUT FORMAT (FOLLOW THIS STRICTLY):
       systemInstruction += "\n\n" + personaDirective;
     }
 
-    systemInstruction += "\n\nSTRICT BREVITY & SPEED RULE: Reply in ONE or TWO short sentences maximum (under 40 words total). No long introductions, no paragraphs, no pleasantries. Get straight to the point with sharp aristocratic Russian wit.";
+    systemInstruction += "\n\nRESPONSE MODE: SHORT (ULTRA-LOW LATENCY, HIGH SPEED DIRECTIVE).\nSTRICT 2-SENTENCE MAXIMUM: Reply in EXACTLY ONE OR TWO SHORT SENTENCES TOTAL (under 35 words). NEVER exceed 2 sentences. No greeting, no pleasantries, no padding. Cut straight to the point immediately.";
 
     const rawKey = ((req.headers['x-goog-api-key'] as string) || req.body?.apiKey || '').trim();
     const reqProvider = ((req.headers['x-ai-provider'] as string) || 'auto').trim().toLowerCase();
@@ -589,25 +628,62 @@ ROUND TABLE OUTPUT FORMAT (FOLLOW THIS STRICTLY):
       });
 
       const client = getAiClient(rawKey);
-      const responseStream = await client.models.generateContentStream({
-        model: GEMINI_MODEL,
-        contents: contentsToSend,
-        config: {
-          systemInstruction,
-          maxOutputTokens: 1024,
-          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+      let responseStream: any = null;
+      let lastStreamErr: any = null;
+
+      for (const modelName of CANDIDATE_GEMINI_MODELS) {
+        try {
+          const config: any = {
+            systemInstruction,
+            maxOutputTokens: 350,
+          };
+          if (modelName === 'gemini-3.8-flash') {
+            config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
+          }
+          responseStream = await client.models.generateContentStream({
+            model: modelName,
+            contents: contentsToSend,
+            config
+          });
+          break;
+        } catch (err: any) {
+          lastStreamErr = err;
+          const isRetryable =
+            err?.message?.includes('429') ||
+            err?.message?.includes('RESOURCE_EXHAUSTED') ||
+            err?.message?.includes('quota') ||
+            err?.message?.includes('503') ||
+            err?.message?.includes('UNAVAILABLE') ||
+            err?.message?.includes('404') ||
+            err?.status === 429 ||
+            err?.status === 503;
+          if (!isRetryable) {
+            throw err;
+          }
+          console.warn(`Stream model ${modelName} error (${err?.message?.slice(0, 80)}), trying fallback...`);
         }
-      });
+      }
+
+      if (!responseStream && lastStreamErr) {
+        throw lastStreamErr;
+      }
 
       res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
       res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      if (typeof (res as any).flushHeaders === 'function') {
+        (res as any).flushHeaders();
+      }
 
       let emittedAny = false;
       for await (const chunk of responseStream) {
         if (chunk.text) {
           emittedAny = true;
           res.write(`data: ${JSON.stringify({ text: chunk.text })}\n\n`);
+          if (typeof (res as any).flush === 'function') {
+            (res as any).flush();
+          }
         }
       }
 
@@ -793,9 +869,9 @@ Strict Formatting Instructions:
       let voiceName = 'Kore';
       let style = 'Clear, expressive mystical voice';
 
-      if (persona === 'Madame Blavatsky') {
+      if (persona === 'Madame Blavatsky' || persona === 'Madame Helena Blavatsky' || persona === 'Blavatsky') {
         voiceName = 'Kore';
-        style = 'A clear, mature English voice with a subtle, respectful hint of Russian cadence. Contemplative and mystical.';
+        style = 'A 19th-century aristocratic Russian noblewoman speaking English with a distinct, unmistakable Russian accent and aristocratic cadence. Curt, world-weary, sardonic, with authentic Slavic phonetic inflection, slightly rolled Rs, and crisp, haughty Russian cadence.';
       } else if (persona === 'Laevus') {
         voiceName = 'Puck';
         style = 'A warm, clear, and reassuring American English voice with a mature, gentle, weathered Southern accent. Not too heavy, just a touch of Southern character.';
